@@ -43,16 +43,26 @@ export function middleware(request: NextRequest) {
   }
 
   // Detect whether this incoming request is targeted to the Admin host
-  // Matches:
-  // 1. Explicit environment variable: APP_MODE=admin
-  // 2. Subdomains: 'admin.pakhiscollection.com', 'admin.localhost:3000', or any custom host starting with 'admin.'
-  // 3. Custom ADMIN_DOMAIN environment variable (if specified)
-  const configuredAdminDomain = process.env.ADMIN_DOMAIN || 'admin.';
+  // Supports:
+  // 1. Explicit deployment flag: APP_MODE=admin
+  // 2. Completely distinct custom domain matching: ADMIN_HOST or NEXT_PUBLIC_ADMIN_URL (e.g. pakhis-admin.com)
+  // 3. Subdomains: 'admin.pakhiscollection.com', 'admin.localhost:3000', or any host starting with 'admin.'
+  const cleanHost = hostname.split(':')[0].toLowerCase();
+  const configuredAdminHost = (process.env.ADMIN_HOST || process.env.ADMIN_DOMAIN || 'admin.').toLowerCase();
+  
+  let adminUrlHost = '';
+  if (process.env.NEXT_PUBLIC_ADMIN_URL) {
+    try {
+      adminUrlHost = new URL(process.env.NEXT_PUBLIC_ADMIN_URL).hostname.toLowerCase();
+    } catch {}
+  }
+
   const isAdminHost =
     process.env.APP_MODE === 'admin' ||
-    hostname.startsWith('admin.') ||
-    hostname.startsWith('admin-') ||
-    (configuredAdminDomain && hostname.includes(configuredAdminDomain));
+    cleanHost.startsWith('admin.') ||
+    cleanHost.startsWith('admin-') ||
+    (adminUrlHost && cleanHost === adminUrlHost) ||
+    (configuredAdminHost && cleanHost.includes(configuredAdminHost));
 
   // =========================================================================
   // HOST ROUTING 1: ADMIN HOST (admin.pakhiscollection.com or APP_MODE=admin)

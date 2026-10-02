@@ -135,8 +135,8 @@ async function runTestSuite() {
 
   // 8. SUBDOMAIN & HOST ROUTING ISOLATION AUDIT
   console.log('\n--- Test Suite 8: Subdomain & Dual-Host Routing Logic ---');
-  function resolveHostTarget(hostname: string, pathname: string, appMode?: string): { target: string; status: number } {
-    const isAdmin = appMode === 'admin' || hostname.startsWith('admin.') || hostname.startsWith('admin-');
+  function resolveHostTarget(hostname: string, pathname: string, appMode?: string, adminHost?: string): { target: string; status: number } {
+    const isAdmin = appMode === 'admin' || hostname.startsWith('admin.') || hostname.startsWith('admin-') || (adminHost && hostname === adminHost);
     if (isAdmin) {
       if (pathname === '/') return { target: '/admin', status: 200 };
       const customerOnly = ['/cart', '/checkout', '/wishlist', '/category', '/products', '/account'];
@@ -156,6 +156,11 @@ async function runTestSuite() {
   assert(resolveHostTarget('pakhiscollection.com', '/').target === '/', 'Customer domain serves consumer storefront at root /');
   assert(resolveHostTarget('pakhiscollection.com', '/cart').status === 200, 'Customer domain allows access to /cart');
   assert(resolveHostTarget('pakhiscollection.com', '/admin', 'storefront').status === 404, 'Storefront-only mode blocks /admin access completely (404)');
+
+  // Testing Completely Different Custom Domains (e.g. pakhis-admin.com & pakhiscollection.com)
+  assert(resolveHostTarget('pakhis-admin.com', '/', undefined, 'pakhis-admin.com').target === '/admin', 'Distinct domain (pakhis-admin.com) routes directly to /admin');
+  assert(resolveHostTarget('pakhis-admin.com', '/cart', undefined, 'pakhis-admin.com').status === 404, 'Distinct admin domain disallows customer cart access (404)');
+  assert(resolveHostTarget('pakhis-admin.com', '/', 'admin').target === '/admin', 'Dedicated deployment host with APP_MODE=admin serves admin panel at root /');
 
   // 9. SUMMARY
   console.log('\n======================================================');
