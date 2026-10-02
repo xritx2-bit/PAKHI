@@ -99,9 +99,9 @@ export default function Footer({ onSelectCategory }: FooterProps) {
               <h4 className="font-serif text-sm font-bold text-[#241816] tracking-wide mb-3">Help &amp; Orders</h4>
               <ul className="space-y-2 text-xs text-[#6E5C57]">
                 <li><Link href="/track-order" className="hover:text-[#722F3D] font-medium text-[#722F3D]">Track Order</Link></li>
-                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Contact Us</Link></li>
-                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Shipping Info</Link></li>
-                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Returns Policy</Link></li>
+                <li><Link href="/shipping-policy" className="hover:text-[#722F3D]">Shipping Info</Link></li>
+                <li><Link href="/returns-policy" className="hover:text-[#722F3D]">Returns Policy</Link></li>
+                <li><a href="mailto:support@pakhiscollection.com" className="hover:text-[#722F3D]">Email Concierge</a></li>
               </ul>
             </div>
           </div>
@@ -155,9 +155,9 @@ export default function Footer({ onSelectCategory }: FooterProps) {
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[#6E5C57] gap-2 text-center sm:text-left">
           <p>© 2026 Pakhi&apos;s Collection. All rights reserved. Handcrafted with reverence in India.</p>
           <div className="flex items-center gap-4 text-[11px]">
-            <a href="#privacy" className="hover:text-[#722F3D]">Privacy Policy</a>
+            <Link href="/privacy-policy" className="hover:text-[#722F3D]">Privacy Policy</Link>
             <span>•</span>
-            <a href="#terms" className="hover:text-[#722F3D]">Terms &amp; Conditions</a>
+            <Link href="/terms" className="hover:text-[#722F3D]">Terms &amp; Conditions</Link>
             <span>•</span>
             <Link href="/admin" className="hover:text-[#722F3D] text-[#6E5C57]/60">Staff Portal</Link>
           </div>

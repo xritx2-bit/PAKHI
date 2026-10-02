@@ -156,7 +156,7 @@ export default function AdminDashboardPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins' | 'returns'
+    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins' | 'returns' | 'analytics'
   >('overview');
 
   // Live Database States
@@ -167,6 +167,7 @@ export default function AdminDashboardPage() {
   const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
   const [adminUsersList, setAdminUsersList] = useState<AdminUser[]>([]);
   const [returnsList, setReturnsList] = useState<ReturnRecord[]>([]);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   // Loading & Filter states
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -783,6 +784,85 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleTriggerBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const res = await fetch('/api/admin/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId: currentUser?.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✓ Database backup snapshot created successfully:\n${data.data.fileName} (${data.data.sizeKb} KB)`);
+      } else {
+        alert(data.error || 'Failed to create database snapshot');
+      }
+    } catch {
+      alert('Error triggering database backup');
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  // Analytics Computations
+  const analyticsData = useMemo(() => {
+    const totalGmv = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const paidRevenue = orders
+      .filter((o) => o.paymentStatus === 'PAID')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+    const pendingCod = orders
+      .filter((o) => o.paymentMethod === 'COD' && o.paymentStatus !== 'PAID')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+
+    const upiCount = orders.filter((o) => o.paymentMethod === 'UPI').length;
+    const cardCount = orders.filter((o) => o.paymentMethod === 'CARD').length;
+    const codCount = orders.filter((o) => o.paymentMethod === 'COD').length;
+    const totalOrdersCount = orders.length || 1;
+
+    const returnCount = returnsList.length;
+    const returnRate = ((returnCount / totalOrdersCount) * 100).toFixed(1);
+
+    const categoryVolume: Record<string, { label: string; count: number; gmv: number; color: string }> = {
+      sarees: { label: 'Banarasi & Silk Sarees', count: 0, gmv: 0, color: 'bg-rose-500' },
+      kurtas: { label: 'Printed & Embroidered Kurtas', count: 0, gmv: 0, color: 'bg-amber-500' },
+      'kurta-sets': { label: 'Designer Kurta Sets', count: 0, gmv: 0, color: 'bg-sky-500' },
+      lehengas: { label: 'Heritage Bridal Lehengas', count: 0, gmv: 0, color: 'bg-purple-500' },
+      jewellery: { label: 'Artisan Kundan Jewellery', count: 0, gmv: 0, color: 'bg-emerald-500' },
+    };
+
+    orders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        const lowerName = (item.productNameSnapshot || '').toLowerCase();
+        let cat = 'sarees';
+        if (lowerName.includes('kurta set') || lowerName.includes('anarkali') || lowerName.includes('chanderi')) cat = 'kurta-sets';
+        else if (lowerName.includes('kurta')) cat = 'kurtas';
+        else if (lowerName.includes('lehenga')) cat = 'lehengas';
+        else if (lowerName.includes('choker') || lowerName.includes('jewel') || lowerName.includes('kundan')) cat = 'jewellery';
+        else if (lowerName.includes('saree') || lowerName.includes('silk')) cat = 'sarees';
+
+        if (categoryVolume[cat]) {
+          categoryVolume[cat].count += item.quantity || 1;
+          categoryVolume[cat].gmv += (item.priceSnapshot || 0) * (item.quantity || 1);
+        }
+      });
+    });
+
+    return {
+      totalGmv,
+      paidRevenue,
+      pendingCod,
+      upiShare: Math.round((upiCount / totalOrdersCount) * 100),
+      cardShare: Math.round((cardCount / totalOrdersCount) * 100),
+      codShare: Math.round((codCount / totalOrdersCount) * 100),
+      upiCount,
+      cardCount,
+      codCount,
+      returnRate,
+      categoryVolume,
+    };
+  }, [orders, returnsList]);
+
   // ==========================================
   // AUTHENTICATION VIEW: EXECUTIVE ACCESS GATE
   // ==========================================
@@ -919,6 +999,7 @@ export default function AdminDashboardPage() {
               { id: 'categories', label: 'Category Hierarchy', icon: FolderTree, count: categoriesList.length },
               { id: 'reviews', label: 'Review Moderation', icon: MessageSquare },
               { id: 'admins', label: 'Staff & Admin Team', icon: Users, count: adminUsersList.length },
+              { id: 'analytics', label: 'BI & Sales Analytics', icon: TrendingUp },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -958,7 +1039,7 @@ export default function AdminDashboardPage() {
 
         {/* Sidebar Footer */}
         <div className="pt-6 border-t border-slate-800/80 space-y-3">
-          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800/80 text-[11px] space-y-1">
+          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800/80 text-[11px] space-y-2">
             <div className="flex items-center justify-between text-slate-400">
               <span>Database Sync</span>
               <span className="flex items-center gap-1 text-emerald-400 font-mono">
@@ -969,6 +1050,14 @@ export default function AdminDashboardPage() {
             <div className="text-[10px] text-slate-400 font-mono truncate">
               URL: file:./prisma/dev.db
             </div>
+            <button
+              onClick={handleTriggerBackup}
+              disabled={isBackingUp}
+              className="w-full py-1.5 px-2 rounded bg-slate-900 hover:bg-slate-800 text-[10px] text-[#DFC394] font-mono flex items-center justify-center gap-1.5 transition-colors border border-slate-800 hover:border-[#DFC394]/40"
+            >
+              <Database className="w-3 h-3 text-[#DFC394]" />
+              <span>{isBackingUp ? 'Snapshotting...' : 'Create DB Snapshot'}</span>
+            </button>
           </div>
 
           <Link
@@ -2084,6 +2173,159 @@ export default function AdminDashboardPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 10: BUSINESS INTELLIGENCE & ANALYTICS */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header */}
+              <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-[#DFC394]" />
+                    <span>Business Intelligence &amp; Performance Analytics</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Real-time transaction splits, category revenue distribution, return rate analysis, and COD vs Online mix
+                  </p>
+                </div>
+                <button
+                  onClick={refreshAllData}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-[#DFC394] font-medium flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Refresh Metrics</span>
+                </button>
+              </div>
+
+              {/* 4 Summary Highlight Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Settled Prepaid GMV</span>
+                  <div className="text-2xl font-serif font-bold text-emerald-400">
+                    ₹{analyticsData.paidRevenue.toLocaleString('en-IN')}
+                  </div>
+                  <span className="text-[11px] text-slate-500 block">Captured via UPI &amp; Cards</span>
+                </div>
+
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Pending COD In-Transit</span>
+                  <div className="text-2xl font-serif font-bold text-amber-400">
+                    ₹{analyticsData.pendingCod.toLocaleString('en-IN')}
+                  </div>
+                  <span className="text-[11px] text-slate-500 block">Cash collected at doorstep</span>
+                </div>
+
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Storewide Return Rate</span>
+                  <div className="text-2xl font-serif font-bold text-white">
+                    {analyticsData.returnRate}%
+                  </div>
+                  <span className="text-[11px] text-slate-400 block">{returnsList.length} total return requests</span>
+                </div>
+
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Average Order Value (AOV)</span>
+                  <div className="text-2xl font-serif font-bold text-[#DFC394]">
+                    ₹{orders.length > 0 ? Math.round(analyticsData.totalGmv / orders.length).toLocaleString('en-IN') : '0'}
+                  </div>
+                  <span className="text-[11px] text-slate-500 block">Per completed transaction</span>
+                </div>
+              </div>
+
+              {/* Payment Methods & Channel Share */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Payment Mix Breakdown */}
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-4">
+                  <h4 className="font-serif text-base font-bold text-white flex items-center justify-between">
+                    <span>Payment Channel Split</span>
+                    <span className="text-xs font-mono text-[#DFC394] font-normal">{orders.length} Orders</span>
+                  </h4>
+
+                  <div className="space-y-3">
+                    {/* UPI */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                          <span>Instant UPI (GPay / PhonePe / Paytm)</span>
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold">{analyticsData.upiShare}% ({analyticsData.upiCount})</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+                        <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${analyticsData.upiShare}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Cards */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
+                          <span>Credit / Debit Cards (Visa / Mastercard / RuPay)</span>
+                        </span>
+                        <span className="font-mono text-sky-400 font-bold">{analyticsData.cardShare}% ({analyticsData.cardCount})</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+                        <div className="h-full bg-sky-400 rounded-full transition-all duration-500" style={{ width: `${analyticsData.cardShare}%` }} />
+                      </div>
+                    </div>
+
+                    {/* COD */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                          <span>Cash on Delivery (COD &le; ₹5,000 threshold)</span>
+                        </span>
+                        <span className="font-mono text-amber-400 font-bold">{analyticsData.codShare}% ({analyticsData.codCount})</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full transition-all duration-500" style={{ width: `${analyticsData.codShare}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] text-slate-400">
+                    💡 Online prepaid adoption stands at <strong className="text-white">{analyticsData.upiShare + analyticsData.cardShare}%</strong>, minimizing courier RTO (Return to Origin) risks.
+                  </div>
+                </div>
+
+                {/* Category Revenue Distribution */}
+                <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 space-y-4">
+                  <h4 className="font-serif text-base font-bold text-white flex items-center justify-between">
+                    <span>Category Volume &amp; GMV Share</span>
+                    <span className="text-xs font-mono text-[#DFC394] font-normal">5 Categories</span>
+                  </h4>
+
+                  <div className="space-y-3">
+                    {Object.entries(analyticsData.categoryVolume).map(([key, cat]) => {
+                      const share = analyticsData.totalGmv > 0 ? Math.round((cat.gmv / analyticsData.totalGmv) * 100) : 0;
+                      return (
+                        <div key={key} className="space-y-1.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-300 font-medium">{cat.label}</span>
+                            <span className="font-mono text-slate-200">
+                              ₹{cat.gmv.toLocaleString('en-IN')} <span className="text-slate-500">({cat.count} units)</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+                            <div
+                              className={`h-full ${cat.color} rounded-full transition-all duration-500`}
+                              style={{ width: `${share}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] text-slate-400">
+                    ✨ Banarasi silk drapes continue to be our highest revenue contributor, driven by wedding &amp; festive season demand.
+                  </div>
+                </div>
               </div>
             </div>
           )}
