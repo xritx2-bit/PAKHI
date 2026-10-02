@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { items, address, paymentMethod, couponCode } = body;
+    const { items, address, paymentMethod, couponCode, paymentDetails } = body;
 
     if (!items || !items.length || !address) {
       return NextResponse.json(
@@ -35,7 +35,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Calculate price from database values
+    const method = (paymentMethod || 'UPI').toUpperCase();
+
+    // 1. Calculate price and validate stock from database values
     let subtotal = 0;
     const orderItemsData: {
       productVariantId?: string;
@@ -45,45 +47,79 @@ export async function POST(request: Request) {
       quantity: number;
     }[] = [];
 
+    const stockDeductions: { variantId: string; quantity: number }[] = [];
+
     for (const item of items) {
-      // Find variant in DB if ID provided, else look up product
       let itemPrice = 0;
       let itemName = '';
       let variantDesc = '';
       let variantId: string | undefined = undefined;
+      const qty = Number(item.quantity) || 1;
 
+      // Try looking up variant by ID if provided
       if (item.productVariantId) {
         const variant = await db.productVariant.findUnique({
           where: { id: item.productVariantId },
           include: { product: true },
         });
         if (variant) {
+          if (variant.stock < qty) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Insufficient stock for ${variant.product.name} (${variant.size || variant.color || 'Standard'}). Only ${variant.stock} left.`,
+              },
+              { status: 400 }
+            );
+          }
           itemPrice = variant.price;
           itemName = variant.product.name;
           variantDesc = `${variant.color || ''} ${variant.size || ''}`.trim();
           variantId = variant.id;
+          stockDeductions.push({ variantId: variant.id, quantity: qty });
         }
       }
 
-      if (!itemPrice && item.productId) {
-        const prod = await db.product.findUnique({
-          where: { id: item.productId },
+      // If no variant found yet, check product by slug or ID
+      if (!itemPrice) {
+        const prod = await db.product.findFirst({
+          where: {
+            OR: [
+              { id: item.productId || '' },
+              { slug: item.slug || '' },
+            ],
+          },
+          include: { variants: true },
         });
+
         if (prod) {
           itemPrice = prod.salePrice;
           itemName = prod.name;
-          variantDesc = item.selectedColor || '';
+          variantDesc = `${item.selectedColor || ''} ${item.selectedSize || ''}`.trim();
+
+          // Match variant if size/color provided
+          const matchedVariant = prod.variants.find(
+            (v) =>
+              (!item.selectedSize || v.size === item.selectedSize) &&
+              (!item.selectedColor || v.color === item.selectedColor)
+          );
+
+          if (matchedVariant) {
+            variantId = matchedVariant.id;
+            if (matchedVariant.stock >= qty) {
+              stockDeductions.push({ variantId: matchedVariant.id, quantity: qty });
+            }
+          }
         }
       }
 
-      // Fallback to trusted item price sent if mock ID
+      // Safe fallback to client-sent price if demo item not in seed DB
       if (!itemPrice) {
-        itemPrice = Number(item.price);
-        itemName = item.name;
+        itemPrice = Number(item.price) || 999;
+        itemName = item.name || 'Ethnic Wear Piece';
         variantDesc = `${item.selectedColor || ''} ${item.selectedSize || ''}`.trim();
       }
 
-      const qty = Number(item.quantity) || 1;
       subtotal += itemPrice * qty;
 
       orderItemsData.push({
@@ -95,68 +131,148 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Server-side discount calculation
+    // 2. Server-side coupon verification
     let discount = 0;
+    let validatedCouponId: string | null = null;
+
     if (couponCode) {
+      const cleanCoupon = couponCode.trim().toUpperCase();
       const coupon = await db.coupon.findUnique({
-        where: { code: couponCode.toUpperCase() },
+        where: { code: cleanCoupon },
       });
+
       if (coupon && subtotal >= coupon.minimumOrder) {
-        if (coupon.type === 'PERCENTAGE') {
-          discount = (subtotal * coupon.value) / 100;
-          if (coupon.maximumDiscount && discount > coupon.maximumDiscount) {
-            discount = coupon.maximumDiscount;
+        if (!coupon.expiresAt || new Date() <= coupon.expiresAt) {
+          if (coupon.type === 'PERCENTAGE') {
+            discount = Math.round((subtotal * coupon.value) / 100);
+            if (coupon.maximumDiscount && discount > coupon.maximumDiscount) {
+              discount = coupon.maximumDiscount;
+            }
+          } else {
+            discount = coupon.value;
           }
-        } else {
-          discount = coupon.value;
+          validatedCouponId = coupon.id;
         }
       }
     } else if (subtotal >= 2000) {
-      discount = 200; // Automatic festive tier discount
+      // Automatic festive threshold privilege
+      discount = 200;
     }
 
-    // 3. Shipping fee rule (Free above ₹999)
-    const shippingFee = subtotal >= 999 ? 0 : 49;
+    discount = Math.min(discount, subtotal);
+
+    // 3. Shipping fee calculation (Free above ₹999 as stated in banner)
+    const shippingFee = subtotal >= 999 || subtotal === 0 ? 0 : 49;
     const total = Math.max(0, subtotal - discount + shippingFee);
 
-    // 4. Create Order in database
-    const orderNumber = `PK-${Math.floor(100000 + Math.random() * 900000)}`;
+    // 4. COD Rule Enforcement (Section 10 of Blueprint: Maximum COD order value is ₹5,000)
+    if (method === 'COD' && total > 5000) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Orders above ₹5,000 are not eligible for Cash on Delivery for insurance reasons. Please choose UPI or Card payment.',
+        },
+        { status: 400 }
+      );
+    }
 
-    const order = await db.order.create({
-      data: {
-        orderNumber,
-        subtotal,
-        discount,
-        shippingFee,
-        total,
-        paymentMethod: paymentMethod.toUpperCase(),
-        paymentStatus: paymentMethod.toUpperCase() === 'COD' ? 'PENDING' : 'PAID',
-        orderStatus: 'CONFIRMED',
-        addressSnapshot: JSON.stringify(address),
-        items: {
-          create: orderItemsData,
+    // 5. Generate unique Order Number
+    const orderNumber = `PK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const paymentStatus = method === 'COD' ? 'PENDING' : 'PAID';
+    const isPaidOnline = method !== 'COD';
+
+    // 6. Run atomic Prisma transaction
+    const createdOrder = await db.$transaction(async (tx) => {
+      // A. Create Order
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber,
+          subtotal,
+          discount,
+          shippingFee,
+          total,
+          paymentMethod: method,
+          paymentStatus,
+          orderStatus: 'CONFIRMED',
+          addressSnapshot: JSON.stringify(address),
+          items: {
+            create: orderItemsData,
+          },
+          statusHistory: {
+            create: [
+              {
+                oldStatus: 'PENDING',
+                newStatus: 'CONFIRMED',
+                changedBy: 'Checkout Service (Automated)',
+              },
+            ],
+          },
         },
-        statusHistory: {
-          create: [
-            {
-              oldStatus: 'PENDING',
-              newStatus: 'CONFIRMED',
-              changedBy: 'Checkout Service',
-            },
-          ],
+        include: {
+          items: true,
+          statusHistory: true,
         },
-      },
-      include: {
-        items: true,
-        statusHistory: true,
-      },
+      });
+
+      // B. Create Payment Record
+      await tx.payment.create({
+        data: {
+          orderId: newOrder.id,
+          gateway: method === 'COD' ? 'MANUAL_COD' : 'RAZORPAY_SIMULATED',
+          gatewayOrderId: `pay_order_${Date.now()}`,
+          gatewayPaymentId: isPaidOnline
+            ? paymentDetails?.transactionId || `pay_${Math.random().toString(36).substring(2, 10)}`
+            : null,
+          amount: total,
+          currency: 'INR',
+          status: isPaidOnline ? 'SUCCESS' : 'PENDING',
+          method,
+        },
+      });
+
+      // C. Deduct Stock & Record Inventory Transactions
+      for (const deduction of stockDeductions) {
+        await tx.productVariant.update({
+          where: { id: deduction.variantId },
+          data: { stock: { decrement: deduction.quantity } },
+        });
+
+        await tx.inventoryTransaction.create({
+          data: {
+            variantId: deduction.variantId,
+            type: 'SALE_DEDUCTION',
+            quantity: -deduction.quantity,
+            reference: orderNumber,
+          },
+        });
+      }
+
+      // D. Increment coupon usage count if used
+      if (validatedCouponId) {
+        await tx.coupon.update({
+          where: { id: validatedCouponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
+      return newOrder;
     });
 
-    return NextResponse.json({ success: true, data: order }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          ...createdOrder,
+          estimatedDelivery: '3 - 5 Business Days',
+          courierPartner: 'Blue Dart Express',
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating order:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process order' },
+      { success: false, error: 'Failed to process order securely' },
       { status: 500 }
     );
   }
