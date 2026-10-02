@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: #722F3D;
+    --primary-dark: #541F28;
+    --primary-light: #8E3E4E;
+    --primary-subtle: #FAF2F3;
+    
+    --accent: #C6A36B;
+    --accent-light: #DFCA9B;
+    --accent-dark: #9F7B3F;
+    --accent-subtle: #FDF9F2;
+
+    --bg-ivory: #F8F3EC;
+    --bg-warm: #F5EBDD;
+    --bg-card: #FFFFFF;
+    
+    --text-espresso: #241816;
+    --text-muted: #6E5C57;
+    --text-light: #9B8983;
+
+    --border-subtle: #E8DCCF;
+    --border-gold: #DFC394;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 14px;
+  }
+
+  body {
+    background-color: var(--bg-ivory);
+    color: var(--text-espresso);
+    font-family: var(--font-montserrat), sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-display, .font-serif {
+    font-family: var(--font-playfair), serif;
+  }
+}
+
+/* Custom Utilities for Pakhi's Royal Aesthetic */
+.bg-primary-burgundy {
+  background-color: #722F3D;
+}
+.text-primary-burgundy {
+  color: #722F3D;
+}
+.border-primary-burgundy {
+  border-color: #722F3D;
+}
+
+.bg-accent-gold {
+  background-color: #C6A36B;
+}
+.text-accent-gold {
+  color: #C6A36B;
+}
+.border-accent-gold {
+  border-color: #C6A36B;
+}
+
+.bg-ivory-page {
+  background-color: #F8F3EC;
+}
+
+.bg-ivory-warm {
+  background-color: #F5EBDD;
+}
+
+.text-espresso {
+  color: #241816;
+}
+
+.text-warm-slate {
+  color: #6E5C57;
+}
+
+.border-subtle {
+  border-color: #E8DCCF;
+}
+
+/* Gold foil gradient */
+.gold-shimmer {
+  background: linear-gradient(135deg, #C6A36B 0%, #F5DFB8 50%, #B89355 100%);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #B89355 0%, #DFC394 50%, #A58045 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle luxury box shadows */
+.shadow-royal {
+  box-shadow: 0 10px 30px -10px rgba(114, 47, 61, 0.08), 0 4px 12px -2px rgba(48, 37, 34, 0.04);
+}
+
+.shadow-royal-hover:hover {
+  box-shadow: 0 20px 40px -12px rgba(114, 47, 61, 0.16), 0 8px 16px -4px rgba(48, 37, 34, 0.08);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F3EC;
+}
+::-webkit-scrollbar-thumb {
+  background: #DFC394;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C6A36B;
+}
