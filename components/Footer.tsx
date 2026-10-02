@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 interface FooterProps {
-  onSelectCategory: (cat: 'sarees' | 'kurtas') => void;
+  onSelectCategory?: (cat: 'sarees' | 'kurtas') => void;
 }
 
 export default function Footer({ onSelectCategory }: FooterProps) {
@@ -76,19 +77,31 @@ export default function Footer({ onSelectCategory }: FooterProps) {
             <div>
               <h4 className="font-serif text-sm font-bold text-[#241816] tracking-wide mb-3">Shop</h4>
               <ul className="space-y-2 text-xs text-[#6E5C57]">
-                <li><button onClick={() => onSelectCategory('sarees')} className="hover:text-[#722F3D]">Sarees</button></li>
-                <li><button onClick={() => onSelectCategory('kurtas')} className="hover:text-[#722F3D]">Kurtas</button></li>
-                <li><a href="#new-arrivals" className="hover:text-[#722F3D]">New Arrivals</a></li>
-                <li><a href="#about-section" className="hover:text-[#722F3D]">Festive Edit</a></li>
+                <li>
+                  {onSelectCategory ? (
+                    <button onClick={() => onSelectCategory('sarees')} className="hover:text-[#722F3D]">Sarees</button>
+                  ) : (
+                    <Link href="/category/sarees" className="hover:text-[#722F3D]">Sarees</Link>
+                  )}
+                </li>
+                <li>
+                  {onSelectCategory ? (
+                    <button onClick={() => onSelectCategory('kurtas')} className="hover:text-[#722F3D]">Kurtas</button>
+                  ) : (
+                    <Link href="/category/kurtas" className="hover:text-[#722F3D]">Kurtas</Link>
+                  )}
+                </li>
+                <li><Link href="/category/all" className="hover:text-[#722F3D]">All Collections</Link></li>
+                <li><Link href="/wishlist" className="hover:text-[#722F3D]">My Wishlist</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-serif text-sm font-bold text-[#241816] tracking-wide mb-3">Help</h4>
+              <h4 className="font-serif text-sm font-bold text-[#241816] tracking-wide mb-3">Help &amp; Orders</h4>
               <ul className="space-y-2 text-xs text-[#6E5C57]">
-                <li><a href="#contact" className="hover:text-[#722F3D]">Contact Us</a></li>
-                <li><a href="#faq" className="hover:text-[#722F3D]">FAQ</a></li>
-                <li><a href="#shipping" className="hover:text-[#722F3D]">Shipping Info</a></li>
-                <li><a href="#returns" className="hover:text-[#722F3D]">Returns &amp; Exchange</a></li>
+                <li><Link href="/track-order" className="hover:text-[#722F3D] font-medium text-[#722F3D]">Track Order</Link></li>
+                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Contact Us</Link></li>
+                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Shipping Info</Link></li>
+                <li><Link href="/#about-section" className="hover:text-[#722F3D]">Returns Policy</Link></li>
               </ul>
             </div>
           </div>

@@ -27,8 +27,8 @@ export default function MobileBottomNav({ onSearchClick }: MobileBottomNavProps)
         <span className="text-[10px]">Search</span>
       </button>
 
-      <a
-        href="#new-arrivals"
+      <Link
+        href="/wishlist"
         className="relative flex flex-col items-center gap-0.5 text-xs font-medium hover:text-[#722F3D] transition-colors"
       >
         <Heart className="w-5 h-5" />
@@ -38,15 +38,15 @@ export default function MobileBottomNav({ onSearchClick }: MobileBottomNavProps)
             {wishlist.length}
           </span>
         )}
-      </a>
+      </Link>
 
-      <button
-        onClick={() => alert("Pakhi's Collection Customer Portal & Order History")}
+      <Link
+        href="/track-order"
         className="flex flex-col items-center gap-0.5 text-xs font-medium hover:text-[#722F3D] transition-colors"
       >
         <User className="w-5 h-5" />
-        <span className="text-[10px]">Account</span>
-      </button>
+        <span className="text-[10px]">Track Order</span>
+      </Link>
 
       <button
         onClick={() => setIsCartOpen(true)}

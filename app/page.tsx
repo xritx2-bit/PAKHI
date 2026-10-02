@@ -7,20 +7,14 @@ import ShopByCategory from '@/components/ShopByCategory';
 import NewArrivals from '@/components/NewArrivals';
 import EditorialBanner from '@/components/EditorialBanner';
 import ShopByOccasion from '@/components/ShopByOccasion';
-import ProductDetailModal from '@/components/ProductDetailModal';
-import CartDrawer from '@/components/CartDrawer';
-import CheckoutModal from '@/components/CheckoutModal';
-import SearchModal from '@/components/SearchModal';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import Footer from '@/components/Footer';
 import { PRODUCTS } from '@/lib/products-data';
-import { CartProvider, useCart } from '@/lib/cart-context';
+import { useCart } from '@/lib/cart-context';
 import { ShieldCheck, Sparkles, RefreshCw, Truck, Filter } from 'lucide-react';
 
 function BoutiqueMain() {
-  const { activeProductModal, closeProductModal, isCheckoutOpen, setIsCheckoutOpen } = useCart();
-
-  const [searchOpen, setSearchOpen] = useState(false);
+  const { setIsSearchOpen } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'sarees' | 'kurtas'>('all');
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
 
@@ -59,7 +53,7 @@ function BoutiqueMain() {
     <div className="min-h-screen flex flex-col bg-[#F8F3EC]">
       {/* Navbar with brand logo and cart counters */}
       <Navbar
-        onSearchClick={() => setSearchOpen(true)}
+        onSearchClick={() => setIsSearchOpen(true)}
         onFilterCategory={(cat) => {
           setSelectedCategory(cat);
           setSelectedOccasion(null);
@@ -177,40 +171,12 @@ function BoutiqueMain() {
       {/* Footer matching mockup */}
       <Footer onSelectCategory={(cat) => setSelectedCategory(cat)} />
 
-      {/* Slide-over Cart Drawer */}
-      <CartDrawer onOpenCheckout={() => setIsCheckoutOpen(true)} />
-
-      {/* Product Detail Modal */}
-      {activeProductModal && (
-        <ProductDetailModal
-          product={activeProductModal}
-          onClose={closeProductModal}
-          onOpenCheckout={() => setIsCheckoutOpen(true)}
-        />
-      )}
-
-      {/* Checkout Modal */}
-      <CheckoutModal
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-      />
-
-      {/* Search Modal */}
-      <SearchModal
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-      />
-
       {/* Mobile Navigation Bottom Bar */}
-      <MobileBottomNav onSearchClick={() => setSearchOpen(true)} />
+      <MobileBottomNav onSearchClick={() => setIsSearchOpen(true)} />
     </div>
   );
 }
 
 export default function Home() {
-  return (
-    <CartProvider>
-      <BoutiqueMain />
-    </CartProvider>
-  );
+  return <BoutiqueMain />;
 }

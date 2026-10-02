@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Montserrat } from "next/font/google";
 import "./globals.css";
+import StoreProvider from "@/components/StoreProvider";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -40,7 +41,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${montserrat.variable} scroll-smooth`}>
       <body className="min-h-screen flex flex-col bg-[#F8F3EC] text-[#241816] selection:bg-[#722F3D] selection:text-[#F8F3EC]">
-        {children}
+        <StoreProvider>
+          {children}
+        </StoreProvider>
       </body>
     </html>
   );

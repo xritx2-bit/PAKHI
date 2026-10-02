@@ -70,30 +70,48 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
             >
               Home
             </Link>
-            <button
-              onClick={() => onFilterCategory?.('sarees')}
+            <Link
+              href="/category/sarees"
+              onClick={(e) => {
+                if (onFilterCategory) {
+                  e.preventDefault();
+                  onFilterCategory('sarees');
+                }
+              }}
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
             >
               Sarees
-            </button>
-            <button
-              onClick={() => onFilterCategory?.('kurtas')}
+            </Link>
+            <Link
+              href="/category/kurtas"
+              onClick={(e) => {
+                if (onFilterCategory) {
+                  e.preventDefault();
+                  onFilterCategory('kurtas');
+                }
+              }}
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
             >
               Kurtas
-            </button>
+            </Link>
             <a
-              href="#new-arrivals"
+              href="/#new-arrivals"
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
             >
               New Arrivals
             </a>
             <a
-              href="#about-section"
+              href="/#about-section"
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
             >
               About
             </a>
+            <Link
+              href="/track-order"
+              className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
+            >
+              Track Order
+            </Link>
             <Link
               href="/admin"
               className="px-2.5 py-1 text-xs font-semibold rounded bg-[#FAF2F3] text-[#722F3D] border border-[#722F3D]/20 hover:bg-[#722F3D] hover:text-[#FFFFFF] transition-all"
@@ -113,18 +131,18 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
               <Search className="w-5 h-5" />
             </button>
 
-            {/* User Account */}
-            <button
-              onClick={() => alert("Welcome to Pakhi's Collection. Member portal & order tracking available.")}
+            {/* User Account / Order Tracking */}
+            <Link
+              href="/track-order"
               className="hidden sm:inline-flex p-2 hover:text-[#722F3D] transition-colors rounded-full hover:bg-[#E8DCCF]/40"
-              aria-label="Account"
+              aria-label="Track Orders"
             >
               <User className="w-5 h-5" />
-            </button>
+            </Link>
 
             {/* Wishlist */}
-            <a
-              href="#new-arrivals"
+            <Link
+              href="/wishlist"
               className="relative p-2 hover:text-[#722F3D] transition-colors rounded-full hover:bg-[#E8DCCF]/40"
               aria-label="Wishlist"
             >
@@ -134,7 +152,7 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
                   {wishlist.length}
                 </span>
               )}
-            </a>
+            </Link>
 
             {/* Cart Bag */}
             <button

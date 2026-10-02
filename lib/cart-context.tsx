@@ -19,6 +19,9 @@ interface CartContextType {
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
 
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean) => void;
+
   wishlist: string[];
   toggleWishlist: (productId: string) => void;
   isInWishlist: (productId: string) => boolean;
@@ -68,6 +71,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const [wishlist, setWishlist] = useState<string[]>(['saree-1', 'kurta-1']);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [activeProductModal, setActiveProductModal] = useState<Product | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -171,6 +175,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       estimatedDelivery: '3 - 5 Business Days'
     };
 
+    // Also asynchronously record order in database
+    try {
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart,
+          address,
+          paymentMethod,
+        }),
+      }).catch((err) => console.error('Order recording error:', err));
+    } catch {
+      // Fallback silently if offline
+    }
+
     setOrders((prev) => [newOrder, ...prev]);
     setLastOrder(newOrder);
     setCart([]);
@@ -193,6 +212,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cartTotal,
         isCartOpen,
         setIsCartOpen,
+        isSearchOpen,
+        setIsSearchOpen,
         wishlist,
         toggleWishlist,
         isInWishlist,
