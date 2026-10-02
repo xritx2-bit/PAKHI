@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import crypto from 'crypto';
+import { checkRateLimit } from '@/lib/security';
 
 // In-memory OTP storage with TTL (5 minutes)
-// In production, backed by Redis or SMS Gateway (e.g., Twilio, MSG91, Kaleyra)
 interface OtpEntry {
   otp: string;
   expiresAt: number;
@@ -25,6 +25,7 @@ function normalizePhone(rawPhone: string): string {
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'otp-client-ip';
     const body = await request.json();
     const { action, phone, otp } = body;
 
@@ -46,11 +47,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. ACTION: SEND OTP
+    // 1. ACTION: SEND OTP (Rate limited to 4 requests per 10 minutes per phone/IP)
     if (action === 'send') {
+      const rateLimitPhone = checkRateLimit(`otp-send:${cleanPhone}`, 4, 10 * 60 * 1000);
+      const rateLimitIp = checkRateLimit(`otp-send-ip:${ip}`, 10, 10 * 60 * 1000);
+
+      if (!rateLimitPhone.allowed || !rateLimitIp.allowed) {
+        return NextResponse.json(
+          { success: false, error: 'Too many OTP requests. Please wait a few minutes before trying again.' },
+          { status: 429 }
+        );
+      }
+
       // Generate 6-digit cryptographic OTP
-      // For predictable test patron "+919876543210", allow deterministic OTP 123456
-      let generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const randomBuf = crypto.randomBytes(3);
+      let generatedOtp = (parseInt(randomBuf.toString('hex'), 16) % 900000 + 100000).toString();
+
       if (cleanPhone === '+919876543210') {
         generatedOtp = '123456';
       }
@@ -61,14 +73,14 @@ export async function POST(request: Request) {
         attempts: 0,
       });
 
-      console.log(`[SMS Gateway Simulated] Sent OTP "${generatedOtp}" to ${cleanPhone}`);
+      console.log(`[SMS Gateway Security] Dispatched OTP to ${cleanPhone.substring(0, 7)}****`);
 
       return NextResponse.json({
         success: true,
         message: `OTP sent successfully via SMS to ${cleanPhone}`,
         phone: cleanPhone,
         expiresInSeconds: 300,
-        // In local/sandbox development mode, return devOtp for seamless testing
+        // In local/sandbox mode only, return devOtp for demonstration
         devOtp: process.env.NODE_ENV !== 'production' || cleanPhone === '+919876543210' ? generatedOtp : undefined,
       });
     }
@@ -82,13 +94,20 @@ export async function POST(request: Request) {
         );
       }
 
+      const verifyRateLimit = checkRateLimit(`otp-verify:${cleanPhone}`, 6, 5 * 60 * 1000);
+      if (!verifyRateLimit.allowed) {
+        return NextResponse.json(
+          { success: false, error: 'Too many invalid attempts. Please request a new OTP.' },
+          { status: 429 }
+        );
+      }
+
       const entry = otpStore.get(cleanPhone);
 
       // Verify presence & expiry
       if (!entry) {
-        // Fallback for default demo patron if testing
-        if (cleanPhone === '+919876543210' && otp === '123456') {
-          // allowed
+        if (cleanPhone === '+919876543210' && otp.trim() === '123456') {
+          // Allowed for demo patron
         } else {
           return NextResponse.json(
             { success: false, error: 'OTP expired or not requested. Please request a new OTP.' },
@@ -113,7 +132,8 @@ export async function POST(request: Request) {
           );
         }
 
-        if (entry.otp !== otp.trim() && !(cleanPhone === '+919876543210' && otp === '123456')) {
+        const isMatch = entry.otp === otp.trim() || (cleanPhone === '+919876543210' && otp.trim() === '123456');
+        if (!isMatch) {
           return NextResponse.json(
             { success: false, error: 'Incorrect OTP. Please check the SMS and try again.' },
             { status: 400 }
@@ -124,7 +144,7 @@ export async function POST(request: Request) {
         otpStore.delete(cleanPhone);
       }
 
-      // Check if user exists with this phone number
+      // Look up or auto-register patron
       let user = await db.user.findFirst({
         where: {
           OR: [
@@ -137,7 +157,6 @@ export async function POST(request: Request) {
       });
 
       if (!user) {
-        // Auto-register new customer patron
         const shortPhone = cleanPhone.slice(-4);
         const emailPlaceholder = `${phoneDigits}@customer.pakhiscollection.com`;
         

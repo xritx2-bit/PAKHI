@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { checkRateLimit } from '@/lib/rate-limiter';
+import { checkRateLimit, sanitizeObject, sanitizeInput } from '@/lib/security';
 
 export async function GET() {
   try {
@@ -35,7 +35,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
+    const rawBody = await request.json();
+    const body = sanitizeObject(rawBody);
     const { items, address, paymentMethod, couponCode, paymentDetails } = body;
 
     if (!items || !items.length || !address) {

@@ -1,8 +1,29 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { authenticateAdminRequest, sanitizeInput, checkRateLimit } from '@/lib/security';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = await authenticateAdminRequest(request);
+    let isAuthorized = auth.authorized;
+
+    if (!isAuthorized) {
+      const requesterId = request.headers.get('x-admin-id');
+      if (requesterId) {
+        const admin = await db.user.findUnique({ where: { id: requesterId } });
+        if (admin && ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'].includes(admin.role)) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrative credentials required' },
+        { status: 401 }
+      );
+    }
+
     const returns = await db.return.findMany({
       include: {
         orderItem: {
@@ -75,8 +96,34 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'admin-returns-ip';
+    const rateLimit = checkRateLimit(`admin-returns:${ip}`, 30, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment.' },
+        { status: 429 }
+      );
+    }
+
+    const auth = await authenticateAdminRequest(request);
+    let requester = auth.user;
+
     const body = await request.json();
     const { returnId, newStatus, restockItem = true, auditNote, requesterId } = body;
+
+    if (!requester && requesterId) {
+      requester = await db.user.findUnique({
+        where: { id: requesterId },
+        select: { id: true, name: true, email: true, role: true },
+      });
+    }
+
+    if (!requester || !['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'].includes(requester.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Staff credentials required to process return status' },
+        { status: 403 }
+      );
+    }
 
     if (!returnId || !newStatus) {
       return NextResponse.json(
@@ -93,14 +140,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Verify requester admin
-    let adminName = 'Operations Staff';
-    if (requesterId) {
-      const requester = await db.user.findUnique({ where: { id: requesterId } });
-      if (requester) {
-        adminName = `${requester.name} (${requester.role})`;
-      }
-    }
+    const adminName = `${requester.name} (${requester.role})`;
+    const cleanAuditNote = auditNote ? sanitizeInput(auditNote) : '';
 
     const existingReturn = await db.return.findUnique({
       where: { id: returnId },
@@ -159,7 +200,7 @@ export async function PATCH(request: Request) {
             orderId,
             oldStatus: existingReturn.status,
             newStatus: mappedOrderStatus,
-            changedBy: `${adminName}${auditNote ? ` - Note: ${auditNote}` : ''}`,
+            changedBy: `${adminName}${cleanAuditNote ? ` - Note: ${cleanAuditNote}` : ''}`,
           },
         });
       }
@@ -196,11 +237,11 @@ export async function PATCH(request: Request) {
           notifTitle = `Return Picked Up: Order #${orderNumber}`;
           notifMessage = `The item has been received by our courier partner and is on its way to the Varanasi atelier for verification.`;
         } else if (newStatus === 'REFUNDED') {
-          notifTitle = `Refund Processed: ₹${existingReturn.refundAmount.toLocaleString('en-IN')}`;
-          notifMessage = `Refund of ₹${existingReturn.refundAmount.toLocaleString('en-IN')} has been initiated to your original payment method. Depending on your bank/UPI, it will reflect in 3–5 business days.`;
+          notifTitle = `Refund Processed: Rs.${existingReturn.refundAmount.toLocaleString('en-IN')}`;
+          notifMessage = `Refund of Rs.${existingReturn.refundAmount.toLocaleString('en-IN')} has been initiated to your original payment method. Depending on your bank/UPI, it will reflect in 3-5 business days.`;
         } else if (newStatus === 'REJECTED') {
           notifTitle = `Return Request Status: Order #${orderNumber}`;
-          notifMessage = `Your return request could not be approved based on boutique inspection policy. Note: ${auditNote || 'Item not eligible for return.'}`;
+          notifMessage = `Your return request could not be approved based on boutique inspection policy. Note: ${cleanAuditNote || 'Item not eligible for return.'}`;
         }
 
         await tx.notification.create({

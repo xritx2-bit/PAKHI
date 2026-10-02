@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth';
+import { authenticateAdminRequest, sanitizeInput, checkRateLimit } from '@/lib/security';
 
-// Helper to securely get and verify the requester's identity from the database
+// Helper to securely get and verify the requester's identity
 async function getRequester(request: Request, bodyRequesterId?: string) {
+  const auth = await authenticateAdminRequest(request);
+  if (auth.authorized && auth.user) {
+    return await db.user.findUnique({ where: { id: auth.user.id } });
+  }
+
   const requesterId = bodyRequesterId || request.headers.get('x-admin-id');
   if (!requesterId) return null;
   return await db.user.findUnique({
@@ -11,9 +17,17 @@ async function getRequester(request: Request, bodyRequesterId?: string) {
   });
 }
 
-// 1. GET: List all administrators
-export async function GET() {
+// 1. GET: List all administrators (Authenticated staff only)
+export async function GET(request: Request) {
   try {
+    const requester = await getRequester(request);
+    if (!requester || !['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'].includes(requester.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrative access token required' },
+        { status: 401 }
+      );
+    }
+
     const admins = await db.user.findMany({
       where: {
         role: { in: ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'] },
@@ -43,6 +57,15 @@ export async function GET() {
 // 2. POST: Create a new administrator (OWNER ONLY)
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'admin-users-ip';
+    const rateLimit = checkRateLimit(`admin-create:${ip}`, 10, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { name, email, role, phone, password, requesterId } = body;
 
@@ -65,7 +88,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = sanitizeInput(email).toLowerCase();
+    const cleanName = sanitizeInput(name);
+    const cleanPhone = phone ? sanitizeInput(phone) : null;
+    const cleanRole = role ? sanitizeInput(role) : 'ADMIN';
 
     // Check if email already registered
     const existing = await db.user.findUnique({
@@ -73,47 +99,77 @@ export async function POST(request: Request) {
     });
 
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: `An account with email ${cleanEmail} already exists` },
-        { status: 409 }
-      );
+      // If user exists as customer, upgrade to admin
+      const upgraded = await db.user.update({
+        where: { id: existing.id },
+        data: {
+          role: cleanRole,
+          name: cleanName || existing.name,
+          phone: cleanPhone || existing.phone,
+          passwordHash: hashPassword(password),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          phone: true,
+          createdAt: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Existing user upgraded to ${cleanRole}`,
+        data: upgraded,
+      });
     }
 
-    // Role cannot be duplicate OWNER
-    const assignedRole = role === 'OWNER' ? 'SUPER_ADMIN' : (role || 'OPS_MANAGER');
-    const hashedPassword = hashPassword(password);
-
+    // Create new admin
     const newAdmin = await db.user.create({
       data: {
-        name,
+        name: cleanName,
         email: cleanEmail,
-        phone: phone || null,
-        role: assignedRole,
-        passwordHash: hashedPassword,
+        phone: cleanPhone,
+        role: cleanRole,
+        passwordHash: hashPassword(password),
       },
       select: {
         id: true,
         name: true,
         email: true,
-        phone: true,
         role: true,
+        phone: true,
         createdAt: true,
       },
     });
 
-    return NextResponse.json({ success: true, data: newAdmin }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      message: `Administrator ${newAdmin.name} created successfully`,
+      data: newAdmin,
+    });
   } catch (error) {
     console.error('Error creating admin user:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create new administrator' },
+      { success: false, error: 'Failed to create administrator account' },
       { status: 500 }
     );
   }
 }
 
-// 3. PATCH: Change Password or Update Permissions / Role
+// 3. PATCH: Update admin details or reset password
 export async function PATCH(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'admin-patch-ip';
+    const rateLimit = checkRateLimit(`admin-patch:${ip}`, 20, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const {
       userId,
@@ -232,11 +288,11 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Update profile info
+    // Update profile info with sanitization
     const updateData: Record<string, unknown> = {};
-    if (name) updateData.name = name;
-    if (role && requester.role === 'OWNER') updateData.role = role;
-    if (phone !== undefined) updateData.phone = phone;
+    if (name) updateData.name = sanitizeInput(name);
+    if (role && requester.role === 'OWNER') updateData.role = sanitizeInput(role);
+    if (phone !== undefined) updateData.phone = sanitizeInput(phone);
 
     const updated = await db.user.update({
       where: { id: userId },

@@ -2,21 +2,39 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/lib/db';
+import { authenticateAdminRequest, checkRateLimit } from '@/lib/security';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { requesterId } = body;
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'admin-backup-ip';
+    const rateLimit = checkRateLimit(`admin-backup:${ip}`, 5, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment.' },
+        { status: 429 }
+      );
+    }
 
-    // Verify requester role
-    if (requesterId) {
-      const requester = await db.user.findUnique({ where: { id: requesterId } });
-      if (!requester || (requester.role !== 'OWNER' && requester.role !== 'ADMIN' && requester.role !== 'OPS_MANAGER')) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized: Admin privileges required to snapshot database' },
-          { status: 403 }
-        );
+    // Authenticate requester
+    const auth = await authenticateAdminRequest(request);
+    let requester = auth.user;
+
+    if (!requester) {
+      const body = await request.json().catch(() => ({}));
+      const requesterId = body.requesterId || request.headers.get('x-admin-id');
+      if (requesterId) {
+        requester = await db.user.findUnique({
+          where: { id: requesterId },
+          select: { id: true, name: true, email: true, role: true },
+        });
       }
+    }
+
+    if (!requester || !['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER'].includes(requester.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Executive admin privileges required to snapshot database' },
+        { status: 403 }
+      );
     }
 
     const sourceDbPath = path.resolve(process.cwd(), 'prisma/dev.db');

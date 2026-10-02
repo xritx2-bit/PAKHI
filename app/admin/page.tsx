@@ -282,54 +282,75 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
+  // Authenticated Admin Fetch helper that attaches JWT and Identity headers
+  const adminFetch = async (url: string, options: RequestInit = {}) => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('pakhis_admin_token') : null;
+    const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('pakhis_admin_user') : null;
+    let userId = currentUser?.id;
+    if (!userId && userStr) {
+      try {
+        userId = JSON.parse(userStr).id;
+      } catch {}
+    }
+    const headers = new Headers(options.headers || {});
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+      headers.set('x-admin-token', token);
+    }
+    if (userId) {
+      headers.set('x-admin-id', userId);
+    }
+    return fetch(url, { ...options, headers });
+  };
+
   // Sync all operational data from database
   const refreshAllData = async () => {
     setIsRefreshing(true);
     try {
       // 1. Fetch Orders
-      const ordersRes = await fetch('/api/orders');
+      const ordersRes = await adminFetch('/api/orders');
       const ordersData = await ordersRes.json();
       if (ordersData.success && ordersData.data) {
         setOrders(ordersData.data);
       }
 
       // 2. Fetch Inventory
-      const invRes = await fetch('/api/inventory');
+      const invRes = await adminFetch('/api/inventory');
       const invData = await invRes.json();
       if (invData.success && invData.data) {
         setInventoryList(invData.data);
       }
 
       // 3. Fetch Coupons
-      const coupRes = await fetch('/api/coupons');
+      const coupRes = await adminFetch('/api/coupons');
       const coupData = await coupRes.json();
       if (coupData.success && coupData.data) {
         setCouponsList(coupData.data);
       }
 
       // 4. Fetch Categories
-      const catRes = await fetch('/api/categories');
+      const catRes = await adminFetch('/api/categories');
       const catData = await catRes.json();
       if (catData.success && catData.data) {
         setCategoriesList(catData.data);
       }
 
       // 5. Fetch Products
-      const prodRes = await fetch('/api/products');
+      const prodRes = await adminFetch('/api/products');
       const prodData = await prodRes.json();
       if (prodData.success && prodData.data && prodData.data.length > 0) {
         setProductsList(prodData.data);
       }
 
       // 6. Fetch Administrators
-      const adminsRes = await fetch('/api/admin/users');
+      const adminsRes = await adminFetch('/api/admin/users');
       const adminsData = await adminsRes.json();
       if (adminsData.success && adminsData.data) {
         setAdminUsersList(adminsData.data);
       }
 
       // 7. Fetch Returns & Refunds
-      const returnsRes = await fetch('/api/admin/returns');
+      const returnsRes = await adminFetch('/api/admin/returns');
       const returnsData = await returnsRes.json();
       if (returnsData.success && returnsData.data) {
         setReturnsList(returnsData.data);
@@ -367,6 +388,9 @@ export default function AdminDashboardPage() {
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('pakhis_admin_session', 'authenticated');
           sessionStorage.setItem('pakhis_admin_user', JSON.stringify(data.user));
+          if (data.token) {
+            sessionStorage.setItem('pakhis_admin_token', data.token);
+          }
         }
       } else {
         setLoginError(data.error || 'Invalid credentials. Please verify your administrative email and password/PIN.');
@@ -408,6 +432,7 @@ export default function AdminDashboardPage() {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('pakhis_admin_session');
       sessionStorage.removeItem('pakhis_admin_user');
+      sessionStorage.removeItem('pakhis_admin_token');
     }
   };
 
@@ -570,7 +595,7 @@ export default function AdminDashboardPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -625,7 +650,7 @@ export default function AdminDashboardPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -662,7 +687,7 @@ export default function AdminDashboardPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -774,7 +799,7 @@ export default function AdminDashboardPage() {
       else if (selectedReturnAction.action === 'REFUND') targetStatus = 'REFUNDED';
       else if (selectedReturnAction.action === 'REJECT') targetStatus = 'REJECTED';
 
-      const res = await fetch('/api/admin/returns', {
+      const res = await adminFetch('/api/admin/returns', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -805,7 +830,7 @@ export default function AdminDashboardPage() {
   const handleTriggerBackup = async () => {
     setIsBackingUp(true);
     try {
-      const res = await fetch('/api/admin/backup', {
+      const res = await adminFetch('/api/admin/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requesterId: currentUser?.id }),

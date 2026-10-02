@@ -23,15 +23,31 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Handle CORS preflight & headers for API requests
+  // Handle CORS preflight & headers for API requests (Strict Whitelist Validation)
   if (pathname.startsWith('/api')) {
     const response = NextResponse.next();
     const origin = request.headers.get('origin');
     if (origin) {
-      response.headers.set('Access-Control-Allow-Origin', origin);
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      const allowedOrigins = [
+        process.env.NEXT_PUBLIC_SITE_URL,
+        process.env.NEXT_PUBLIC_ADMIN_URL,
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://admin.localhost:3000',
+      ].filter(Boolean) as string[];
+
+      const isAllowedOrigin =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.pakhiscollection.com') ||
+        origin.endsWith('.pakhis-admin.com') ||
+        origin.includes('localhost:');
+
+      if (isAllowedOrigin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-token, x-admin-id');
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+      }
     }
     if (request.method === 'OPTIONS') {
       return new NextResponse(null, {

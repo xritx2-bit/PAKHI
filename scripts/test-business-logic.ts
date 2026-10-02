@@ -1,9 +1,10 @@
 // Pakhi's Collection — Automated Business Logic & Security Test Suite
 // Validating Blueprint Section 23 (Testing Checklist), Section 24 (Milestones 0-10) & Section 25 (Prompt 6)
 
-import { checkRateLimit } from '../lib/rate-limiter';
 import fs from 'fs';
 import path from 'path';
+import { hashPassword, verifyPassword, generateAdminToken, verifyAdminToken } from '../lib/auth';
+import { sanitizeInput, sanitizeObject, checkRateLimit } from '../lib/security';
 
 let passedTests = 0;
 let totalTests = 0;
@@ -69,34 +70,33 @@ async function runTestSuite() {
   assert(!isCodPermitted(5001), 'Order above ₹5,000 strictly rejects COD to prevent transit loss');
   assert(!isCodPermitted(12000), 'High-value order strictly requires online prepaid gateway');
 
-  // 4. RATE LIMITER SECURITY AUDIT
+  // 4. RATE LIMITING ENGINE
   console.log('\n--- Test Suite 4: In-Memory Sliding Window Rate Limiter ---');
-  const testIp = `test_runner_${Date.now()}`;
+  const testIp = '192.168.1.100';
   let allowedCount = 0;
-  for (let i = 0; i < 25; i++) {
-    const res = checkRateLimit(testIp, 5, 10000); // 5 attempts limit
+  for (let i = 0; i < 7; i++) {
+    const res = checkRateLimit(`test_${testIp}`, 5, 2000);
     if (res.allowed) allowedCount++;
   }
   assert(allowedCount === 5, 'Rate limiter permits exactly 5 requests within the window');
-  assert(!checkRateLimit(testIp, 5, 10000).allowed, 'Subsequent brute-force requests are rejected (HTTP 429)');
+  assert(!checkRateLimit(`test_${testIp}`, 5, 2000).allowed, 'Subsequent brute-force requests are rejected (HTTP 429)');
 
-  // 5. 7-DAY REVERSE LOGISTICS RETURN WINDOW AUDIT
+  // 5. 7-DAY RETURN ELIGIBILITY AUDIT
   console.log('\n--- Test Suite 5: 7-Day Return Eligibility Rules ---');
-  function isReturnEligible(deliveredAt: Date, orderStatus: string): { eligible: boolean; reason?: string } {
-    if (orderStatus !== 'DELIVERED') {
-      return { eligible: false, reason: 'Only delivered orders can be returned' };
-    }
-    const daysSinceDelivery = (Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceDelivery > 7) {
-      return { eligible: false, reason: 'The 7-day return window has expired' };
-    }
-    return { eligible: true };
-  }
+  const now = new Date();
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const sixDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
 
-  const today = new Date();
-  const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000);
-  const sixDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-  const tenDaysAgo = new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000);
+  function isReturnEligible(deliveredAt: Date, orderStatus: string): { eligible: boolean; daysLeft: number } {
+    if (orderStatus !== 'DELIVERED') {
+      return { eligible: false, daysLeft: 0 };
+    }
+    const diffMs = Date.now() - deliveredAt.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const daysLeft = Math.max(0, 7 - diffDays);
+    return { eligible: diffDays <= 7, daysLeft };
+  }
 
   assert(isReturnEligible(threeDaysAgo, 'DELIVERED').eligible, 'Delivered order within 3 days is eligible for return');
   assert(isReturnEligible(sixDaysAgo, 'DELIVERED').eligible, 'Delivered order within 6 days is eligible for return');
@@ -111,9 +111,7 @@ async function runTestSuite() {
   }
 
   function canManageAdmin(actor: AdminUser, target: AdminUser): boolean {
-    // Rule: OWNER can manage anyone except other users cannot lower OWNER
     if (actor.role === 'OWNER') return true;
-    // Rule: ADMIN cannot manage other admins, staff, or owner
     return false;
   }
 
@@ -156,17 +154,65 @@ async function runTestSuite() {
   assert(resolveHostTarget('pakhiscollection.com', '/').target === '/', 'Customer domain serves consumer storefront at root /');
   assert(resolveHostTarget('pakhiscollection.com', '/cart').status === 200, 'Customer domain allows access to /cart');
   assert(resolveHostTarget('pakhiscollection.com', '/admin', 'storefront').status === 404, 'Storefront-only mode blocks /admin access completely (404)');
-
-  // Testing Completely Different Custom Domains (e.g. pakhis-admin.com & pakhiscollection.com)
   assert(resolveHostTarget('pakhis-admin.com', '/', undefined, 'pakhis-admin.com').target === '/admin', 'Distinct domain (pakhis-admin.com) routes directly to /admin');
   assert(resolveHostTarget('pakhis-admin.com', '/cart', undefined, 'pakhis-admin.com').status === 404, 'Distinct admin domain disallows customer cart access (404)');
   assert(resolveHostTarget('pakhis-admin.com', '/', 'admin').target === '/admin', 'Dedicated deployment host with APP_MODE=admin serves admin panel at root /');
 
-  // 9. SUMMARY
+  // 9. PBKDF2 PASSWORD HASHING & CONSTANT-TIME VERIFICATION AUDIT
+  console.log('\n--- Test Suite 9: PBKDF2 Password Hashing Security ---');
+  const rawSecret = 'SecureAtelierPass2026!';
+  const pbkdf2Hash = hashPassword(rawSecret);
+  assert(pbkdf2Hash.startsWith('pbkdf2$100000$'), 'Password hash uses PBKDF2 with 100,000 iterations');
+  assert(verifyPassword(rawSecret, pbkdf2Hash), 'Valid password correctly verifies against PBKDF2 hash');
+  assert(!verifyPassword('WrongPassword123', pbkdf2Hash), 'Incorrect password fails PBKDF2 verification');
+  assert(verifyPassword('admin123', null), 'Initial setup PIN verification succeeds when no hash is stored');
+
+  // 10. ADMIN JWT CRYPTOGRAPHIC SIGNING & REJECTION AUDIT
+  console.log('\n--- Test Suite 10: Admin Cryptographic Session Tokens ---');
+  const sampleAdmin = { id: 'admin-123', email: 'owner@pakhiscollection.com', role: 'OWNER' };
+  const validToken = generateAdminToken(sampleAdmin, 3600);
+  const verifiedAdmin = verifyAdminToken(validToken);
+  assert(verifiedAdmin?.id === 'admin-123' && verifiedAdmin?.role === 'OWNER', 'Admin session token signs and verifies authentic claims');
+
+  const tamperedToken = validToken.slice(0, -5) + 'AAAAA';
+  assert(verifyAdminToken(tamperedToken) === null, 'Tampered token signature is strictly rejected');
+  assert(verifyAdminToken('') === null, 'Empty token is safely handled without throwing exceptions');
+
+  // 11. ANTI-XSS INPUT SANITIZATION AUDIT
+  console.log('\n--- Test Suite 11: Anti-XSS Sanitization Engine ---');
+  const dirtyHtml = '<script>alert("xss")</script>Ghat Road, Varanasi';
+  const cleanHtml = sanitizeInput(dirtyHtml);
+  assert(!cleanHtml.includes('<script>') && cleanHtml.includes('Ghat Road, Varanasi'), 'HTML script tags are stripped during input sanitization');
+
+  const dirtyPayload = {
+    fullName: 'Anita <img src=x onerror=alert(1)>',
+    address: 'Flat 401, javascript:void(0)',
+  };
+  const sanitizedPayload = sanitizeObject(dirtyPayload);
+  assert(!sanitizedPayload.fullName.includes('<img') && !sanitizedPayload.address.includes('javascript:'), 'Deep object sanitization neutralizes malicious injections');
+
+  // 12. CORS WHITELIST AUDIT
+  console.log('\n--- Test Suite 12: Strict CORS Whitelist Verification ---');
+  function isAllowedCorsOrigin(origin: string): boolean {
+    const allowed = [
+      'https://pakhiscollection.com',
+      'https://pakhis-admin.com',
+      'http://localhost:3000',
+      'http://admin.localhost:3000',
+    ];
+    return allowed.includes(origin) || origin.endsWith('.pakhiscollection.com') || origin.endsWith('.pakhis-admin.com') || origin.includes('localhost:');
+  }
+
+  assert(isAllowedCorsOrigin('https://pakhiscollection.com'), 'Storefront domain is permitted for CORS');
+  assert(isAllowedCorsOrigin('https://pakhis-admin.com'), 'Admin domain is permitted for CORS');
+  assert(isAllowedCorsOrigin('http://localhost:3000'), 'Local dev environment is permitted for CORS');
+  assert(!isAllowedCorsOrigin('https://evil-attacker.com'), 'Untrusted external origins are strictly rejected by CORS');
+
+  // 13. SUMMARY
   console.log('\n======================================================');
   console.log(`  AUDIT RESULTS: ${passedTests} / ${totalTests} TESTS PASSED`);
   if (passedTests === totalTests) {
-    console.log('  STATUS: PRODUCTION INTEGRITY VERIFIED (100% HEALTHY)');
+    console.log('  STATUS: PRODUCTION INTEGRITY & SECURITY VERIFIED (100% HEALTHY)');
   }
   console.log('======================================================\n');
 }

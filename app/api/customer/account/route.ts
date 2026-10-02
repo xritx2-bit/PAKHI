@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { checkRateLimit, sanitizeInput } from '@/lib/security';
 
 export async function GET(request: Request) {
   try {
@@ -62,28 +63,11 @@ export async function GET(request: Request) {
           addresses: true,
           orders: {
             include: { items: true, statusHistory: true },
-            orderBy: { createdAt: 'desc' },
           },
           notifications: true,
         },
       });
     }
-
-    // Also include orders created by this user or guest orders matching phone/email
-    const userOrders = await db.order.findMany({
-      where: {
-        OR: [
-          { userId: user.id },
-          { orderNumber: 'PK-842913' },
-          { orderNumber: 'PK-120351' },
-        ],
-      },
-      include: {
-        items: true,
-        statusHistory: { orderBy: { createdAt: 'asc' } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
 
     return NextResponse.json({
       success: true,
@@ -92,11 +76,11 @@ export async function GET(request: Request) {
           id: user.id,
           name: user.name,
           email: user.email,
-          phone: user.phone || '+91 98765 43210',
-          memberSince: user.createdAt,
+          phone: user.phone,
+          role: user.role,
         },
+        orders: user.orders,
         addresses: user.addresses,
-        orders: userOrders,
         notifications: user.notifications,
       },
     });
@@ -111,6 +95,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'account-ip';
+    const rateLimit = checkRateLimit(`account-address:${ip}`, 15, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait a moment.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { userId, name, phone, address, city, state, pincode } = body;
 
@@ -137,12 +130,12 @@ export async function POST(request: Request) {
     const newAddress = await db.address.create({
       data: {
         userId: targetUserId,
-        name,
-        phone,
-        address,
-        city,
-        state,
-        pincode,
+        name: sanitizeInput(name),
+        phone: sanitizeInput(phone),
+        address: sanitizeInput(address),
+        city: sanitizeInput(city),
+        state: sanitizeInput(state),
+        pincode: sanitizeInput(pincode),
       },
     });
 
