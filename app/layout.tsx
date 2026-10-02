@@ -24,13 +24,85 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Pakhi's Collection — Elegance in Every Thread | Sarees & Kurtas",
+  metadataBase: new URL('https://pakhiscollection.com'),
+  title: {
+    default: "Pakhi's Collection — Elegance in Every Thread | Sarees & Kurtas",
+    template: "%s | Pakhi's Collection",
+  },
   description: "Exquisite Indian women's ethnic fashion. Handcrafted Banarasi sarees, pure silk drapes, designer anarkali kurtas, and festive collections. Enjoy free shipping on orders above ₹999.",
   icons: {
     icon: "/logo.jpg",
     apple: "/logo.jpg",
   },
-  keywords: ["Pakhi's Collection", "Indian ethnic wear", "Sarees", "Kurtas", "Banarasi Saree", "Silk Sarees", "Anarkali Kurta", "Festive fashion"],
+  keywords: [
+    "Pakhi's Collection",
+    "Indian ethnic wear",
+    "Sarees",
+    "Kurtas",
+    "Banarasi Saree",
+    "Silk Sarees",
+    "Anarkali Kurta",
+    "Festive fashion",
+    "Handloom sarees",
+    "Ethnic fashion India"
+  ],
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: "Pakhi's Collection — Elegance in Every Thread | Sarees & Kurtas",
+    description: "Exquisite Indian women's ethnic fashion. Handcrafted Banarasi sarees, pure silk drapes, and designer kurtas. Free shipping on orders above ₹999.",
+    url: 'https://pakhiscollection.com',
+    siteName: "Pakhi's Collection",
+    images: [
+      {
+        url: '/hero_banner_artisan.png',
+        width: 1200,
+        height: 630,
+        alt: "Pakhi's Collection Luxury Ethnic Wear",
+      },
+    ],
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Pakhi's Collection — Elegance in Every Thread",
+    description: "Handcrafted Banarasi sarees, pure silk drapes, and designer kurtas with doorstep delivery across India.",
+    images: ['/hero_banner_artisan.png'],
+  },
+};
+
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "ClothingStore",
+  "name": "Pakhi's Collection",
+  "alternateName": "Pakhi's Ethnic Atelier",
+  "description": "Exquisite Indian women's ethnic fashion specializing in handwoven Sarees and designer Kurtas.",
+  "url": "https://pakhiscollection.com",
+  "logo": "https://pakhiscollection.com/logo.jpg",
+  "telephone": "+91-98765-43210",
+  "priceRange": "₹₹",
+  "currenciesAccepted": "INR",
+  "paymentAccepted": "Cash, Credit Card, Debit Card, UPI",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Ghat Atelier, Dashashwamedh Road",
+    "addressLocality": "Varanasi",
+    "addressRegion": "Uttar Pradesh",
+    "postalCode": "221001",
+    "addressCountry": "IN"
+  },
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "opens": "10:00",
+    "closes": "20:00"
+  },
+  "sameAs": [
+    "https://instagram.com/pakhiscollection",
+    "https://facebook.com/pakhiscollection"
+  ]
 };
 
 export default function RootLayout({
@@ -40,6 +112,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${playfair.variable} ${montserrat.variable} scroll-smooth`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+      </head>
       <body className="min-h-screen flex flex-col bg-[#F8F3EC] text-[#241816] selection:bg-[#722F3D] selection:text-[#F8F3EC]">
         <StoreProvider>
           {children}

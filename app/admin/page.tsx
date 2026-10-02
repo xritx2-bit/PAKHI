@@ -43,7 +43,8 @@ import {
   Edit3,
   UserPlus,
   Crown,
-  ShieldAlert
+  ShieldAlert,
+  RotateCcw
 } from 'lucide-react';
 import { PRODUCTS } from '@/lib/products-data';
 
@@ -119,6 +120,31 @@ interface AdminUser {
   updatedAt?: string;
 }
 
+interface ReturnRecord {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  orderStatus: string;
+  orderDate: string;
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  item: {
+    name: string;
+    variant: string;
+    price: number;
+    quantity: number;
+    variantId?: string;
+  };
+  reason: string;
+  status: 'REQUESTED' | 'APPROVED' | 'PICKED_UP' | 'REFUNDED' | 'REJECTED';
+  refundAmount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AdminDashboardPage() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -130,7 +156,7 @@ export default function AdminDashboardPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins'
+    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins' | 'returns'
   >('overview');
 
   // Live Database States
@@ -140,12 +166,21 @@ export default function AdminDashboardPage() {
   const [couponsList, setCouponsList] = useState<CouponRecord[]>([]);
   const [categoriesList, setCategoriesList] = useState<CategoryRecord[]>([]);
   const [adminUsersList, setAdminUsersList] = useState<AdminUser[]>([]);
+  const [returnsList, setReturnsList] = useState<ReturnRecord[]>([]);
 
   // Loading & Filter states
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
   const [inventoryFilter, setInventoryFilter] = useState<'ALL' | 'CRITICAL' | 'LOW'>('ALL');
+  const [returnStatusFilter, setReturnStatusFilter] = useState<string>('ALL');
+  const [returnSearchQuery, setReturnSearchQuery] = useState('');
+  const [selectedReturnAction, setSelectedReturnAction] = useState<{
+    ret: ReturnRecord;
+    action: 'APPROVE' | 'PICKUP' | 'REFUND' | 'REJECT';
+  } | null>(null);
+  const [returnActionNote, setReturnActionNote] = useState('');
+  const [restockOnRefund, setRestockOnRefund] = useState(true);
 
   // Modals
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<OrderRecord | null>(null);
@@ -272,6 +307,13 @@ export default function AdminDashboardPage() {
       const adminsData = await adminsRes.json();
       if (adminsData.success && adminsData.data) {
         setAdminUsersList(adminsData.data);
+      }
+
+      // 7. Fetch Returns & Refunds
+      const returnsRes = await fetch('/api/admin/returns');
+      const returnsData = await returnsRes.json();
+      if (returnsData.success && returnsData.data) {
+        setReturnsList(returnsData.data);
       }
     } catch (err) {
       console.error('Error synchronizing admin data:', err);
@@ -681,6 +723,66 @@ export default function AdminDashboardPage() {
     return inventoryList;
   }, [inventoryList, inventoryFilter]);
 
+  const pendingReturnsCount = useMemo(() => {
+    return returnsList.filter((r) => r.status === 'REQUESTED').length;
+  }, [returnsList]);
+
+  const totalRefundedAmount = useMemo(() => {
+    return returnsList
+      .filter((r) => r.status === 'REFUNDED')
+      .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+  }, [returnsList]);
+
+  const filteredReturns = useMemo(() => {
+    return returnsList.filter((r) => {
+      const matchesFilter = returnStatusFilter === 'ALL' || r.status === returnStatusFilter;
+      const matchesSearch =
+        !returnSearchQuery.trim() ||
+        r.orderNumber.toLowerCase().includes(returnSearchQuery.toLowerCase()) ||
+        r.customer.name.toLowerCase().includes(returnSearchQuery.toLowerCase()) ||
+        r.customer.email.toLowerCase().includes(returnSearchQuery.toLowerCase()) ||
+        r.item.name.toLowerCase().includes(returnSearchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [returnsList, returnStatusFilter, returnSearchQuery]);
+
+  const handleExecuteReturnAction = async () => {
+    if (!selectedReturnAction) return;
+    setIsSubmitting(true);
+    try {
+      let targetStatus = 'APPROVED';
+      if (selectedReturnAction.action === 'PICKUP') targetStatus = 'PICKED_UP';
+      else if (selectedReturnAction.action === 'REFUND') targetStatus = 'REFUNDED';
+      else if (selectedReturnAction.action === 'REJECT') targetStatus = 'REJECTED';
+
+      const res = await fetch('/api/admin/returns', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          returnId: selectedReturnAction.ret.id,
+          newStatus: targetStatus,
+          restockItem: restockOnRefund,
+          auditNote: returnActionNote,
+          requesterId: currentUser?.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSelectedReturnAction(null);
+        setReturnActionNote('');
+        refreshAllData();
+      } else {
+        alert(data.error || 'Failed to update return request');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating return request');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // ==========================================
   // AUTHENTICATION VIEW: EXECUTIVE ACCESS GATE
   // ==========================================
@@ -810,6 +912,7 @@ export default function AdminDashboardPage() {
             {[
               { id: 'overview', label: 'Executive Overview', icon: LayoutDashboard },
               { id: 'orders', label: 'Orders & Fulfillment', icon: ShoppingBag, count: orders.length },
+              { id: 'returns', label: 'Returns & Refunds', icon: RotateCcw, count: returnsList.length, alertCount: pendingReturnsCount },
               { id: 'products', label: 'Product Catalog', icon: Package, count: productsList.length },
               { id: 'inventory', label: 'Stock & Restocking', icon: Layers, alertCount: criticalStockCount },
               { id: 'coupons', label: 'Coupons & Promos', icon: Tag, count: couponsList.length },
@@ -955,7 +1058,7 @@ export default function AdminDashboardPage() {
           {activeTab === 'overview' && (
             <div className="space-y-6 animate-fadeIn">
               {/* Executive KPI Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 shadow-md space-y-2">
                   <div className="flex items-center justify-between text-slate-400">
                     <span className="text-xs font-medium uppercase tracking-wider font-mono">Gross Revenue</span>
@@ -966,7 +1069,7 @@ export default function AdminDashboardPage() {
                   </div>
                   <div className="text-[11px] text-emerald-400 flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />
-                    <span>Live Gross GMV across all channels</span>
+                    <span>Live Gross GMV</span>
                   </div>
                 </div>
 
@@ -978,32 +1081,49 @@ export default function AdminDashboardPage() {
                   <div className="text-2xl font-serif font-bold text-white">{orders.length}</div>
                   <div className="text-[11px] text-sky-400 flex items-center gap-1">
                     <Truck className="w-3 h-3" />
-                    <span>{pendingShipments} awaiting fulfillment</span>
+                    <span>{pendingShipments} pending dispatch</span>
                   </div>
                 </div>
 
                 <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 shadow-md space-y-2">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-xs font-medium uppercase tracking-wider font-mono">Inventory Health</span>
+                    <span className="text-xs font-medium uppercase tracking-wider font-mono">Inventory</span>
                     <Boxes className="w-4 h-4 text-purple-400" />
                   </div>
                   <div className="text-2xl font-serif font-bold text-white">{inventoryList.length} SKUs</div>
                   <div className={`text-[11px] flex items-center gap-1 ${criticalStockCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     <AlertTriangle className="w-3 h-3" />
-                    <span>{criticalStockCount} items critical (&lt;= 5 units)</span>
+                    <span>{criticalStockCount} critical stock</span>
                   </div>
                 </div>
 
                 <div className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 shadow-md space-y-2">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-xs font-medium uppercase tracking-wider font-mono">Average Order Value</span>
+                    <span className="text-xs font-medium uppercase tracking-wider font-mono">Avg Order Value</span>
                     <Sparkles className="w-4 h-4 text-[#DFC394]" />
                   </div>
                   <div className="text-2xl font-serif font-bold text-white">
                     ₹{orders.length > 0 ? Math.round(totalRevenue / orders.length).toLocaleString('en-IN') : '0'}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Calculated from authenticated checkouts
+                    Per checkout
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('returns')}
+                  className="bg-[#0E1526] p-5 rounded-xl border border-slate-800 shadow-md space-y-2 hover:border-[#DFC394]/50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-xs font-medium uppercase tracking-wider font-mono">Returns Desk</span>
+                    <RotateCcw className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-2xl font-serif font-bold text-white">
+                    {returnsList.length} <span className="text-xs text-slate-400 font-sans font-normal">cases</span>
+                  </div>
+                  <div className={`text-[11px] flex items-center gap-1 ${pendingReturnsCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>{pendingReturnsCount} action needed</span>
                   </div>
                 </div>
               </div>
@@ -1740,6 +1860,233 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           )}
+
+          {/* TAB 9: RETURNS & REFUNDS MANAGEMENT */}
+          {activeTab === 'returns' && (
+            <div className="bg-[#0E1526] rounded-xl border border-slate-800 shadow-md p-5 space-y-5 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                    <RotateCcw className="w-5 h-5 text-[#DFC394]" />
+                    <span>Customer Returns &amp; Reverse Logistics</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Process 7-day doorstep return requests, authorize Blue Dart reverse pickup, inspect items, and issue refunds
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search order #, customer, or saree..."
+                      value={returnSearchQuery}
+                      onChange={(e) => setReturnSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#DFC394]"
+                    />
+                  </div>
+
+                  <button
+                    onClick={refreshAllData}
+                    className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300"
+                    title="Refresh Returns"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {[
+                  { id: 'ALL', label: 'All Cases', count: returnsList.length },
+                  { id: 'REQUESTED', label: 'Action Required', count: returnsList.filter((r) => r.status === 'REQUESTED').length },
+                  { id: 'APPROVED', label: 'Pickup Scheduled', count: returnsList.filter((r) => r.status === 'APPROVED').length },
+                  { id: 'PICKED_UP', label: 'Atelier Inspection', count: returnsList.filter((r) => r.status === 'PICKED_UP').length },
+                  { id: 'REFUNDED', label: 'Settled & Refunded', count: returnsList.filter((r) => r.status === 'REFUNDED').length },
+                  { id: 'REJECTED', label: 'Declined', count: returnsList.filter((r) => r.status === 'REJECTED').length },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setReturnStatusFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+                      returnStatusFilter === f.id
+                        ? 'bg-[#DFC394] text-[#070A10] font-bold shadow-sm'
+                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                    }`}
+                  >
+                    <span>{f.label}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800/80 text-slate-200">
+                      {f.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Summary Metric Ribbon */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-mono">Total Return Inquiries</span>
+                  <span className="text-base font-bold text-white">{returnsList.length}</span>
+                </div>
+                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-amber-400 block font-mono">Pending Immediate Review</span>
+                  <span className="text-base font-bold text-amber-300">{pendingReturnsCount}</span>
+                </div>
+                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-sky-400 block font-mono">Reverse Courier Transit</span>
+                  <span className="text-base font-bold text-sky-300">
+                    {returnsList.filter((r) => r.status === 'APPROVED' || r.status === 'PICKED_UP').length}
+                  </span>
+                </div>
+                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-emerald-400 block font-mono">Total Settled Refunds</span>
+                  <span className="text-base font-bold text-emerald-400">₹{totalRefundedAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Returns Records Table */}
+              <div className="overflow-x-auto rounded-lg border border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 uppercase tracking-wider font-mono text-[10px] border-b border-slate-800">
+                    <tr>
+                      <th className="p-3.5">Order / Date</th>
+                      <th className="p-3.5">Customer</th>
+                      <th className="p-3.5">Artisan Item &amp; Reason</th>
+                      <th className="p-3.5 text-right">Refund Amount</th>
+                      <th className="p-3.5 text-center">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {filteredReturns.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-500">
+                          No return requests match the selected filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredReturns.map((ret) => (
+                        <tr key={ret.id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="p-3.5 font-mono space-y-1">
+                            <span className="text-[#DFC394] font-bold block">{ret.orderNumber}</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              {new Date(ret.createdAt).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                          </td>
+                          <td className="p-3.5 space-y-0.5">
+                            <span className="text-white font-medium block">{ret.customer.name}</span>
+                            <span className="text-[10px] text-slate-400 block">{ret.customer.email}</span>
+                            {ret.customer.phone && ret.customer.phone !== 'N/A' && (
+                              <span className="text-[10px] text-slate-500 font-mono block">{ret.customer.phone}</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 max-w-xs space-y-1">
+                            <div className="text-slate-200 font-semibold">{ret.item.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              Variant: {ret.item.variant} • Qty: {ret.item.quantity}
+                            </div>
+                            <div className="text-[11px] text-amber-200/90 italic bg-amber-950/30 p-1.5 rounded border border-amber-900/40">
+                              &ldquo;{ret.reason}&rdquo;
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-right font-mono font-bold text-white">
+                            ₹{ret.refundAmount.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <span
+                              className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                ret.status === 'REQUESTED'
+                                  ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                                  : ret.status === 'APPROVED'
+                                  ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                                  : ret.status === 'PICKED_UP'
+                                  ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                                  : ret.status === 'REFUNDED'
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  : 'bg-rose-950 text-rose-300 border border-rose-800'
+                              }`}
+                            >
+                              {ret.status === 'REQUESTED' ? 'Action Required' : ret.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {ret.status === 'REQUESTED' && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedReturnAction({ ret, action: 'APPROVE' });
+                                      setReturnActionNote('Blue Dart reverse pickup scheduled');
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-sky-900/60 hover:bg-sky-800 text-sky-200 text-xs font-semibold transition-colors"
+                                  >
+                                    Approve &amp; Pickup
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedReturnAction({ ret, action: 'REJECT' });
+                                      setReturnActionNote('Return policy window or condition not met');
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs transition-colors"
+                                  >
+                                    Decline
+                                  </button>
+                                </>
+                              )}
+
+                              {ret.status === 'APPROVED' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedReturnAction({ ret, action: 'PICKUP' });
+                                    setReturnActionNote('Item handed over to reverse logistics courier');
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs font-semibold transition-colors"
+                                >
+                                  Mark Picked Up
+                                </button>
+                              )}
+
+                              {ret.status === 'PICKED_UP' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedReturnAction({ ret, action: 'REFUND' });
+                                    setReturnActionNote('Quality inspection verified. Item pristine in original box.');
+                                    setRestockOnRefund(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 text-xs font-bold transition-colors"
+                                >
+                                  Issue Refund
+                                </button>
+                              )}
+
+                              {ret.status === 'REFUNDED' && (
+                                <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Settled</span>
+                                </span>
+                              )}
+
+                              {ret.status === 'REJECTED' && (
+                                <span className="text-[11px] text-rose-400 font-mono">
+                                  Declined
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -2459,6 +2806,101 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* MODAL: RETURN ACTIONS (APPROVE/REFUND/ETC) */}
+      {/* ========================================== */}
+      {selectedReturnAction && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0B0F19] border border-slate-700 rounded-2xl max-w-md w-full p-6 text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <RotateCcw className="w-5 h-5 text-[#DFC394]" />
+                <div>
+                  <h3 className="font-serif text-base font-bold text-white">
+                    {selectedReturnAction.action === 'APPROVE' && 'Approve Return & Reverse Pickup'}
+                    {selectedReturnAction.action === 'PICKUP' && 'Confirm Courier Pickup'}
+                    {selectedReturnAction.action === 'REFUND' && 'Process Customer Refund'}
+                    {selectedReturnAction.action === 'REJECT' && 'Decline Return Request'}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Order #{selectedReturnAction.ret.orderNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedReturnAction(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Customer:</span>
+                <span className="text-white font-medium">{selectedReturnAction.ret.customer.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Item:</span>
+                <span className="text-slate-200">{selectedReturnAction.ret.item.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Refund Amount:</span>
+                <span className="text-[#DFC394] font-mono font-bold">
+                  ₹{selectedReturnAction.ret.refundAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="pt-1 text-[11px] text-slate-400 border-t border-slate-800">
+                Reason: &ldquo;{selectedReturnAction.ret.reason}&rdquo;
+              </div>
+            </div>
+
+            {selectedReturnAction.action === 'REFUND' && (
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer p-2 bg-slate-900 rounded border border-slate-800">
+                <input
+                  type="checkbox"
+                  checked={restockOnRefund}
+                  onChange={(e) => setRestockOnRefund(e.target.checked)}
+                  className="rounded text-[#DFC394] focus:ring-[#DFC394]"
+                />
+                <span>Restock item (+{selectedReturnAction.ret.item.quantity} qty) back into inventory</span>
+              </label>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Internal Audit Note / Reverse Courier AWB
+              </label>
+              <textarea
+                rows={2}
+                value={returnActionNote}
+                onChange={(e) => setReturnActionNote(e.target.value)}
+                placeholder="Add tracking reference, condition notes, or reason..."
+                className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#DFC394]"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedReturnAction(null)}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleExecuteReturnAction}
+                className="flex-1 py-2.5 bg-[#DFC394] hover:bg-[#C6A36B] text-[#070A10] rounded-lg text-xs font-bold flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm & Execute'}
+              </button>
+            </div>
           </div>
         </div>
       )}

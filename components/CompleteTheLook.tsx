@@ -51,16 +51,33 @@ export default function CompleteTheLook({ product }: CompleteTheLookProps) {
   }, [product]);
 
   const handleAddEnsembleItem = (item: any) => {
-    addToCart({
-      productId: item.id,
-      name: item.name,
-      slug: item.actionSlug || product.slug,
-      price: item.price,
-      originalPrice: Math.round(item.price * 1.25),
-      image: item.image,
-      quantity: 1,
-      selectedColor: 'Curated Pairing',
-    });
+    addToCart(
+      {
+        id: item.id,
+        name: item.name,
+        slug: item.actionSlug || product.slug,
+        price: item.price,
+        originalPrice: Math.round(item.price * 1.25),
+        image: item.image,
+        category: 'jewellery',
+        subcategory: item.category || 'Accessories',
+        discountPercent: 20,
+        rating: 4.9,
+        reviewCount: 18,
+        gallery: [item.image],
+        description: `Handcrafted artisan pairing for ${product.name}`,
+        fabric: 'Artisan Metalwork / Precious Stones',
+        occasion: 'Festive',
+        pattern: 'Handcrafted',
+        isNew: true,
+        isTrending: true,
+        stock: 12,
+        colors: [{ name: 'Gold', hex: '#DFC394', inStock: true }],
+        careInstructions: 'Store in dry velvet case',
+        details: ['Handmade', 'Hypoallergenic'],
+      },
+      { color: 'Curated Pairing', quantity: 1 }
+    );
     setAddedItems((prev) => ({ ...prev, [item.id]: true }));
     setTimeout(() => {
       setIsCartOpen(true);

@@ -136,8 +136,49 @@ export default function ProductDetailPage() {
     }
   };
 
+  const productSchema = useMemo(() => ({
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "image": [product.image, ...(product.gallery || [])],
+    "description": product.description,
+    "sku": product.id,
+    "mpn": product.id,
+    "brand": {
+      "@type": "Brand",
+      "name": "Pakhi's Collection"
+    },
+    "category": product.category,
+    "offers": {
+      "@type": "Offer",
+      "url": `https://pakhiscollection.com/products/${product.slug}`,
+      "priceCurrency": "INR",
+      "price": product.price,
+      "priceValidUntil": "2027-12-31",
+      "itemCondition": "https://schema.org/NewCondition",
+      "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "Pakhi's Collection"
+      }
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": product.rating || 4.9,
+      "reviewCount": product.reviewCount || 24,
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  }), [product]);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F3EC]">
+      {/* Schema.org Product Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+
       {/* Navbar */}
       <Navbar onSearchClick={() => setIsSearchOpen(true)} />
 
