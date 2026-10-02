@@ -100,12 +100,12 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
             >
               New Arrivals
             </a>
-            <a
-              href="/#about-section"
+            <Link
+              href="/about"
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
             >
-              About
-            </a>
+              Our Story
+            </Link>
             <Link
               href="/track-order"
               className="hover:text-[#722F3D] transition-colors py-1 border-b-2 border-transparent hover:border-[#722F3D]"
@@ -125,11 +125,12 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
               <Search className="w-5 h-5" />
             </button>
 
-            {/* User Account / Order Tracking */}
+            {/* User Account / Orders */}
             <Link
-              href="/track-order"
+              href="/account"
               className="hidden sm:inline-flex p-2 hover:text-[#722F3D] transition-colors rounded-full hover:bg-[#E8DCCF]/40"
-              aria-label="Track Orders"
+              aria-label="Account & Orders"
+              title="Customer Account & Orders"
             >
               <User className="w-5 h-5" />
             </Link>
@@ -204,13 +205,27 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
           >
             New Arrivals
           </a>
-          <a
-            href="#about-section"
+          <Link
+            href="/about"
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 rounded-md text-base font-medium text-[#241816] hover:bg-[#E8DCCF]/50 hover:text-[#722F3D]"
           >
-            About
-          </a>
+            Our Story
+          </Link>
+          <Link
+            href="/account"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#241816] hover:bg-[#E8DCCF]/50 hover:text-[#722F3D]"
+          >
+            My Account
+          </Link>
+          <Link
+            href="/track-order"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#241816] hover:bg-[#E8DCCF]/50 hover:text-[#722F3D]"
+          >
+            Track Order
+          </Link>
         </div>
       )}
     </header>

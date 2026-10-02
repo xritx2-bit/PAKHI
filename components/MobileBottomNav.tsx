@@ -41,11 +41,11 @@ export default function MobileBottomNav({ onSearchClick }: MobileBottomNavProps)
       </Link>
 
       <Link
-        href="/track-order"
+        href="/account"
         className="flex flex-col items-center gap-0.5 text-xs font-medium hover:text-[#722F3D] transition-colors"
       >
         <User className="w-5 h-5" />
-        <span className="text-[10px]">Track Order</span>
+        <span className="text-[10px]">Account</span>
       </Link>
 
       <button

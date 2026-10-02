@@ -93,15 +93,18 @@ export default function Footer({ onSelectCategory }: FooterProps) {
                 </li>
                 <li><Link href="/category/all" className="hover:text-[#722F3D]">All Collections</Link></li>
                 <li><Link href="/wishlist" className="hover:text-[#722F3D]">My Wishlist</Link></li>
+                <li><Link href="/about" className="hover:text-[#722F3D]">Our Story</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-serif text-sm font-bold text-[#241816] tracking-wide mb-3">Help &amp; Orders</h4>
               <ul className="space-y-2 text-xs text-[#6E5C57]">
                 <li><Link href="/track-order" className="hover:text-[#722F3D] font-medium text-[#722F3D]">Track Order</Link></li>
+                <li><Link href="/account" className="hover:text-[#722F3D]">My Account</Link></li>
+                <li><Link href="/contact" className="hover:text-[#722F3D]">Concierge &amp; Contact</Link></li>
+                <li><Link href="/faq" className="hover:text-[#722F3D]">Boutique FAQ</Link></li>
                 <li><Link href="/shipping-policy" className="hover:text-[#722F3D]">Shipping Info</Link></li>
                 <li><Link href="/returns-policy" className="hover:text-[#722F3D]">Returns Policy</Link></li>
-                <li><a href="mailto:support@pakhiscollection.com" className="hover:text-[#722F3D]">Email Concierge</a></li>
               </ul>
             </div>
           </div>

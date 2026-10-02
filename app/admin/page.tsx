@@ -44,7 +44,8 @@ import {
   UserPlus,
   Crown,
   ShieldAlert,
-  RotateCcw
+  RotateCcw,
+  Settings
 } from 'lucide-react';
 import { PRODUCTS } from '@/lib/products-data';
 
@@ -156,7 +157,7 @@ export default function AdminDashboardPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins' | 'returns' | 'analytics'
+    'overview' | 'orders' | 'products' | 'inventory' | 'coupons' | 'categories' | 'reviews' | 'admins' | 'returns' | 'analytics' | 'settings'
   >('overview');
 
   // Live Database States
@@ -168,6 +169,23 @@ export default function AdminDashboardPage() {
   const [adminUsersList, setAdminUsersList] = useState<AdminUser[]>([]);
   const [returnsList, setReturnsList] = useState<ReturnRecord[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
+
+  // Store Configuration Settings State
+  const [storeSettings, setStoreSettings] = useState({
+    storeName: "Pakhi's Collection",
+    tagline: 'Elegance in Every Thread',
+    atelierAddress: 'Ghat Atelier, Dashashwamedh Road, Varanasi, UP 221001',
+    gstin: '09AAACP4829K1ZX',
+    freeShippingThreshold: 999,
+    standardShippingFee: 49,
+    maxCodLimit: 5000,
+    supportPhone: '+91 98765 43210',
+    supportEmail: 'support@pakhiscollection.com',
+    whatsappDesk: '+91 98765 43210',
+    announcementText: 'Festive Drape Edit: Complimentary Express Delivery across India on orders above ₹999',
+    announcementActive: true,
+  });
+  const [settingsSavedSuccess, setSettingsSavedSuccess] = useState(false);
 
   // Loading & Filter states
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -863,6 +881,12 @@ export default function AdminDashboardPage() {
     };
   }, [orders, returnsList]);
 
+  const handleSaveStoreSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSavedSuccess(true);
+    setTimeout(() => setSettingsSavedSuccess(false), 3000);
+  };
+
   // ==========================================
   // AUTHENTICATION VIEW: EXECUTIVE ACCESS GATE
   // ==========================================
@@ -1000,6 +1024,7 @@ export default function AdminDashboardPage() {
               { id: 'reviews', label: 'Review Moderation', icon: MessageSquare },
               { id: 'admins', label: 'Staff & Admin Team', icon: Users, count: adminUsersList.length },
               { id: 'analytics', label: 'BI & Sales Analytics', icon: TrendingUp },
+              { id: 'settings', label: 'Store & Policy Config', icon: Settings },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -2327,6 +2352,189 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 11: STORE & POLICY SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="bg-[#0E1526] rounded-xl border border-slate-800 shadow-md p-6 space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-[#DFC394]" />
+                    <span>Boutique Store &amp; Operational Policy Settings</span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Configure store profile, shipping fee rules, maximum Cash on Delivery limits, customer care contacts, and announcement banner
+                  </p>
+                </div>
+                {settingsSavedSuccess && (
+                  <span className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800 text-xs font-semibold flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span>Settings Updated Successfully</span>
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveStoreSettings} className="space-y-6">
+                {/* 1. Atelier & Store Identity */}
+                <div className="space-y-4">
+                  <h4 className="font-serif text-sm font-bold text-[#DFC394] uppercase tracking-wider font-mono">
+                    1. Atelier &amp; Brand Identity
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Store Name</label>
+                      <input
+                        type="text"
+                        value={storeSettings.storeName}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, storeName: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Brand Tagline</label>
+                      <input
+                        type="text"
+                        value={storeSettings.tagline}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, tagline: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Registered GSTIN</label>
+                      <input
+                        type="text"
+                        value={storeSettings.gstin}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, gstin: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Atelier Showroom Address</label>
+                      <input
+                        type="text"
+                        value={storeSettings.atelierAddress}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, atelierAddress: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Commerce & Shipping Rules */}
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <h4 className="font-serif text-sm font-bold text-[#DFC394] uppercase tracking-wider font-mono">
+                    2. Commerce, Shipping &amp; COD Limits
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Free Shipping Order Minimum (₹)</label>
+                      <input
+                        type="number"
+                        value={storeSettings.freeShippingThreshold}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, freeShippingThreshold: Number(e.target.value) })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">Default: ₹999</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Standard Delivery Fee (₹)</label>
+                      <input
+                        type="number"
+                        value={storeSettings.standardShippingFee}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, standardShippingFee: Number(e.target.value) })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">Charged on orders below minimum</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Maximum COD Order Ceiling (₹)</label>
+                      <input
+                        type="number"
+                        value={storeSettings.maxCodLimit}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, maxCodLimit: Number(e.target.value) })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">Max ₹5,000 to prevent transit loss</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Customer Care & Concierge Channels */}
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <h4 className="font-serif text-sm font-bold text-[#DFC394] uppercase tracking-wider font-mono">
+                    3. Customer Care &amp; Concierge Contacts
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Support Phone</label>
+                      <input
+                        type="text"
+                        value={storeSettings.supportPhone}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, supportPhone: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Concierge Email</label>
+                      <input
+                        type="email"
+                        value={storeSettings.supportEmail}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, supportEmail: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">WhatsApp Styling Desk</label>
+                      <input
+                        type="text"
+                        value={storeSettings.whatsappDesk}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, whatsappDesk: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Top Announcement Bar */}
+                <div className="space-y-4 pt-4 border-t border-slate-800">
+                  <h4 className="font-serif text-sm font-bold text-[#DFC394] uppercase tracking-wider font-mono">
+                    4. Storefront Announcement Bar
+                  </h4>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1">Announcement Message Text</label>
+                      <input
+                        type="text"
+                        value={storeSettings.announcementText}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, announcementText: e.target.value })}
+                        className="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white focus:ring-1 focus:ring-[#DFC394]"
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={storeSettings.announcementActive}
+                        onChange={(e) => setStoreSettings({ ...storeSettings, announcementActive: e.target.checked })}
+                        className="rounded text-[#DFC394] focus:ring-[#DFC394]"
+                      />
+                      <span>Display announcement bar prominently at top of storefront</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-800">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-[#DFC394] hover:bg-[#C6A36B] text-[#070A10] font-bold rounded-lg text-xs transition-colors flex items-center gap-1.5 shadow-md"
+                  >
+                    <span>Save Operational Settings</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>

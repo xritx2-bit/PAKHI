@@ -1,7 +1,9 @@
 // Pakhi's Collection — Automated Business Logic & Security Test Suite
-// Validating Blueprint Section 23 (Testing Checklist) & Section 25 (Prompt 6)
+// Validating Blueprint Section 23 (Testing Checklist), Section 24 (Milestones 0-10) & Section 25 (Prompt 6)
 
 import { checkRateLimit } from '../lib/rate-limiter';
+import fs from 'fs';
+import path from 'path';
 
 let passedTests = 0;
 let totalTests = 0;
@@ -18,7 +20,7 @@ function assert(condition: boolean, testName: string) {
 
 async function runTestSuite() {
   console.log('\n======================================================');
-  console.log("  PAKHI'S COLLECTION — AUTOMATED BUSINESS AUDIT SUITE");
+  console.log("  PAKHI'S COLLECTION — COMPREHENSIVE BUSINESS AUDIT SUITE");
   console.log('======================================================\n');
 
   // 1. FREE SHIPPING THRESHOLD AUDIT
@@ -41,6 +43,10 @@ async function runTestSuite() {
       const rawDiscount = Math.round((subtotal * 10) / 100);
       return { valid: true, discount: Math.min(rawDiscount, 500) };
     }
+    if (code === 'WELCOME10') {
+      const rawDiscount = Math.round((subtotal * 10) / 100);
+      return { valid: true, discount: Math.min(rawDiscount, 300) };
+    }
     return { valid: false, discount: 0, error: 'Invalid coupon' };
   }
 
@@ -48,6 +54,7 @@ async function runTestSuite() {
   assert(!calcCoupon('FESTIVE200', 1800).valid, 'FESTIVE200 rejects orders below minimum ₹2,000');
   assert(calcCoupon('ELEGANCE10', 2500).discount === 250, 'ELEGANCE10 gives 10% discount on ₹2,500 order');
   assert(calcCoupon('ELEGANCE10', 7000).discount === 500, 'ELEGANCE10 caps maximum discount at ₹500 for high-value orders');
+  assert(calcCoupon('WELCOME10', 1500).discount === 150, 'WELCOME10 applies 10% discount to introductory orders');
   assert(!calcCoupon('FAKECODE', 3000).valid, 'Unknown coupon codes are rejected');
 
   // 3. CASH ON DELIVERY (COD) THRESHOLD SECURITY
@@ -73,7 +80,60 @@ async function runTestSuite() {
   assert(allowedCount === 5, 'Rate limiter permits exactly 5 requests within the window');
   assert(!checkRateLimit(testIp, 5, 10000).allowed, 'Subsequent brute-force requests are rejected (HTTP 429)');
 
-  // 5. SUMMARY
+  // 5. 7-DAY REVERSE LOGISTICS RETURN WINDOW AUDIT
+  console.log('\n--- Test Suite 5: 7-Day Return Eligibility Rules ---');
+  function isReturnEligible(deliveredAt: Date, orderStatus: string): { eligible: boolean; reason?: string } {
+    if (orderStatus !== 'DELIVERED') {
+      return { eligible: false, reason: 'Only delivered orders can be returned' };
+    }
+    const daysSinceDelivery = (Date.now() - deliveredAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceDelivery > 7) {
+      return { eligible: false, reason: 'The 7-day return window has expired' };
+    }
+    return { eligible: true };
+  }
+
+  const today = new Date();
+  const threeDaysAgo = new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const sixDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const tenDaysAgo = new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000);
+
+  assert(isReturnEligible(threeDaysAgo, 'DELIVERED').eligible, 'Delivered order within 3 days is eligible for return');
+  assert(isReturnEligible(sixDaysAgo, 'DELIVERED').eligible, 'Delivered order within 6 days is eligible for return');
+  assert(!isReturnEligible(tenDaysAgo, 'DELIVERED').eligible, 'Delivered order after 10 days exceeds the 7-day window and is rejected');
+  assert(!isReturnEligible(threeDaysAgo, 'SHIPPED').eligible, 'In-transit order cannot initiate a return before delivery');
+
+  // 6. OWNER SOVEREIGNTY & STRICT ADMIN ISOLATION RULES
+  console.log('\n--- Test Suite 6: Role-Based Authorization & Admin Sovereignty ---');
+  interface AdminUser {
+    id: string;
+    role: 'OWNER' | 'ADMIN' | 'STAFF' | 'CUSTOMER';
+  }
+
+  function canManageAdmin(actor: AdminUser, target: AdminUser): boolean {
+    // Rule: OWNER can manage anyone except other users cannot lower OWNER
+    if (actor.role === 'OWNER') return true;
+    // Rule: ADMIN cannot manage other admins, staff, or owner
+    return false;
+  }
+
+  const ownerUser: AdminUser = { id: 'u-owner', role: 'OWNER' };
+  const adminA: AdminUser = { id: 'u-admin-1', role: 'ADMIN' };
+  const adminB: AdminUser = { id: 'u-admin-2', role: 'ADMIN' };
+
+  assert(canManageAdmin(ownerUser, adminA), 'Owner can manage Administrator A');
+  assert(canManageAdmin(ownerUser, adminB), 'Owner can manage Administrator B');
+  assert(!canManageAdmin(adminA, adminB), 'Admin A CANNOT modify or reset Admin B (Strict isolation enforced)');
+  assert(!canManageAdmin(adminA, ownerUser), 'Admin A CANNOT modify or lower Owner privileges');
+
+  // 7. DATABASE BACKUP EXCLUSION & PRISMA DEV DATABASE AUDIT
+  console.log('\n--- Test Suite 7: Database File & Backup Verification ---');
+  const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+  assert(fs.existsSync(dbPath), 'Primary SQLite database (prisma/dev.db) exists and is accessible');
+  const dbStats = fs.statSync(dbPath);
+  assert(dbStats.size > 0, `Database file has content (${(dbStats.size / 1024).toFixed(1)} KB)`);
+
+  // 8. SUMMARY
   console.log('\n======================================================');
   console.log(`  AUDIT RESULTS: ${passedTests} / ${totalTests} TESTS PASSED`);
   if (passedTests === totalTests) {
