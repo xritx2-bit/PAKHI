@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Pakhi's Collection — Executive Ops & Inventory Control Portal",
+  title: "Pakhi's Collection | Admin Portal",
   description: "Enterprise operational console for Pakhi's Collection. Inventory transactions, live orders, fulfillment dispatch, and revenue metrics.",
   robots: {
     index: false,

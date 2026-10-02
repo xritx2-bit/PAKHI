@@ -26,12 +26,12 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://pakhiscollection.com'),
   title: {
-    default: "Pakhi's Collection — Elegance in Every Thread | Sarees & Kurtas",
+    default: "Pakhi's Collection | Sarees and Kurtas",
     template: "%s | Pakhi's Collection",
   },
   description: "Exquisite Indian women's ethnic fashion. Handcrafted Banarasi sarees, pure silk drapes, designer anarkali kurtas, and festive collections. Enjoy free shipping on orders above ₹999.",
   icons: {
-    icon: "/logo.jpg",
+    icon: "/favicon.ico",
     apple: "/logo.jpg",
   },
   keywords: [
@@ -50,8 +50,8 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "Pakhi's Collection — Elegance in Every Thread | Sarees & Kurtas",
-    description: "Exquisite Indian women's ethnic fashion. Handcrafted Banarasi sarees, pure silk drapes, and designer kurtas. Free shipping on orders above ₹999.",
+    title: "Pakhi's Collection | Sarees and Kurtas",
+    description: "Indian women's ethnic fashion. Handcrafted Banarasi sarees, pure silk drapes, and designer kurtas. Free shipping on orders above Rs.999.",
     url: 'https://pakhiscollection.com',
     siteName: "Pakhi's Collection",
     images: [
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Pakhi's Collection — Elegance in Every Thread",
+    title: "Pakhi's Collection | Sarees and Kurtas",
     description: "Handcrafted Banarasi sarees, pure silk drapes, and designer kurtas with doorstep delivery across India.",
     images: ['/hero_banner_artisan.png'],
   },

@@ -97,7 +97,7 @@ export default function CartPage() {
                 <div className="flex-1 text-xs">
                   {cartSubtotal >= 999 ? (
                     <span className="font-semibold text-[#722F3D]">
-                      🎉 You have unlocked Free Standard Shipping across India!
+                      You have unlocked Free Standard Shipping across India.
                     </span>
                   ) : (
                     <span>

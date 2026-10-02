@@ -46,7 +46,7 @@ export default function AboutPage() {
                 Founded with a singular devotion to preserve India&apos;s royal textile heritage, <strong>Pakhi&apos;s Collection</strong> bridges centuries-old handloom mastery with contemporary silhouettes. From our central atelier in Varanasi, our master karigars spend upwards of 30 to 45 days meticulously hand-weaving individual katan silk drapes using antique wooden jacquard looms.
               </p>
               <p className="text-xs sm:text-sm text-[#4A3B36] leading-relaxed">
-                Every motif — from the traditional <em>Kalka</em> paisley and floral <em>Jaal</em> to geometric architectural borders — tells a story of Indian artistic royalty.
+                Every motif, from the traditional <em>Kalka</em> paisley and floral <em>Jaal</em> to geometric architectural borders, tells a story of Indian artistic heritage.
               </p>
             </div>
 

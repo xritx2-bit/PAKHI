@@ -332,7 +332,7 @@ export default function CustomerAccountPage() {
                       }}
                       className="text-[11px] text-[#722F3D] hover:underline font-medium"
                     >
-                      ✦ Use Demo Patron Number (+91 98765 43210)
+                      Use Demo Patron Number (+91 98765 43210)
                     </button>
                   </div>
                 </form>
@@ -436,7 +436,7 @@ export default function CustomerAccountPage() {
             {/* Patron Banner Header */}
             <div className="bg-[#722F3D] text-[#F8F3EC] rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden mb-8">
               <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 pointer-events-none flex items-center justify-end pr-8">
-                <span className="text-9xl font-serif">❦</span>
+                <span className="text-9xl font-serif opacity-30 select-none" aria-hidden="true">P</span>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
@@ -657,7 +657,7 @@ export default function CustomerAccountPage() {
                         </div>
                         <p className="text-[#6E5C57] leading-relaxed pt-1">{addr.address}</p>
                         <p className="text-[#6E5C57]">
-                          {addr.city}, {addr.state} — <strong>{addr.pincode}</strong>
+                          {addr.city}, {addr.state} - <strong>{addr.pincode}</strong>
                         </p>
                         <p className="text-[#6E5C57] pt-1">
                           Contact: <strong>{addr.phone}</strong>

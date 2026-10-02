@@ -53,7 +53,7 @@ export default function CartDrawer({ onOpenCheckout }: CartDrawerProps) {
           <div className="bg-[#FAF2F3] px-5 py-2.5 border-b border-[#722F3D]/10">
             {cartSubtotal >= 999 ? (
               <p className="text-xs font-medium text-[#722F3D] text-center">
-                🎉 Congratulations! You have unlocked <strong>FREE Standard Shipping</strong>!
+                Congratulations! You have unlocked <strong>FREE Standard Shipping</strong>.
               </p>
             ) : (
               <div>

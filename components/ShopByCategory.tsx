@@ -21,7 +21,7 @@ export default function ShopByCategory({ onSelectCategory }: ShopByCategoryProps
           {/* Subtle Lotus / Ornamental Divider */}
           <div className="flex items-center justify-center gap-3 my-3">
             <div className="h-[1px] w-12 bg-[#C6A36B]" />
-            <span className="text-[#C6A36B] text-lg">❦</span>
+            <span className="text-[#C6A36B] text-lg select-none" aria-hidden="true">|</span>
             <div className="h-[1px] w-12 bg-[#C6A36B]" />
           </div>
           <p className="text-sm text-[#6E5C57] font-light">

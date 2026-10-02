@@ -329,9 +329,9 @@ export default function ProductDetailModal({ product, onClose, onOpenCheckout }:
                 </button>
                 {openSection === 'shipping' && (
                   <div className="pt-2 pb-1 text-xs text-[#6E5C57] space-y-1.5">
-                    <p>✦ Dispatched within 24-48 business hours.</p>
-                    <p>✦ Free standard delivery on orders above ₹999.</p>
-                    <p>✦ 7-day hassle-free doorstep return &amp; exchange guarantee.</p>
+                    <p>- Dispatched within 24-48 business hours.</p>
+                    <p>- Free standard delivery on orders above Rs.999.</p>
+                    <p>- 7-day hassle-free doorstep return &amp; exchange guarantee.</p>
                   </div>
                 )}
               </div>

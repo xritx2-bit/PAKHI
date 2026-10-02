@@ -67,7 +67,7 @@ export default function ContactPage() {
                     <strong className="block text-[#241816]">Pakhi&apos;s Atelier Showroom</strong>
                     <p className="text-[#6E5C57] leading-relaxed">
                       Ghat Atelier, Dashashwamedh Road,<br />
-                      Varanasi, Uttar Pradesh — 221001, India
+                      Varanasi, Uttar Pradesh, 221001, India
                     </p>
                   </div>
                 </div>

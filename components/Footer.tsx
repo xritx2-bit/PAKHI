@@ -120,7 +120,7 @@ export default function Footer({ onSelectCategory }: FooterProps) {
                   <span className="italic font-normal text-[#DFC394]">Timeless Beauty.</span>
                 </h4>
               </div>
-              <div className="text-4xl text-[#C6A36B]/40 font-serif">❦</div>
+              <div className="text-4xl text-[#C6A36B]/20 font-serif select-none" aria-hidden="true">|</div>
             </div>
 
             {/* Newsletter Subscription */}

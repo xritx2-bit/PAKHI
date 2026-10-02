@@ -18,10 +18,8 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
   return (
     <header className="sticky top-0 z-40 bg-[#F8F3EC]/95 backdrop-blur-md border-b border-[#E8DCCF] transition-all">
       {/* Top Announcement Bar */}
-      <div className="bg-[#722F3D] text-[#FDF9F2] text-xs py-2 px-4 text-center tracking-wider font-medium flex items-center justify-center gap-2">
-        <span className="text-[#DFC394]">✦</span>
-        <span>Free Shipping on Orders Above ₹999 across India</span>
-        <span className="text-[#DFC394]">✦</span>
+      <div className="bg-[#722F3D] text-[#FDF9F2] text-xs py-2 px-4 text-center tracking-wider font-medium">
+        <span>Free Shipping on Orders Above Rs.999 across India</span>
       </div>
 
       {/* Main Navigation Bar */}

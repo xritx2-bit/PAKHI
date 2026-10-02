@@ -432,7 +432,7 @@ export default function CheckoutModal({ isOpen, onClose }: CheckoutModalProps) {
                           <div className="flex items-center gap-2 text-[#2D6A4F]">
                             <Sparkles className="w-4 h-4 shrink-0" />
                             <span>
-                              <strong>{appliedCoupon.code}</strong> applied — Saved ₹{appliedCoupon.discount.toLocaleString('en-IN')}!
+                              <strong>{appliedCoupon.code}</strong> applied. Saved Rs.{appliedCoupon.discount.toLocaleString('en-IN')}.
                             </span>
                           </div>
                           <button

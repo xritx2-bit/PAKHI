@@ -1881,7 +1881,7 @@ export default function AdminDashboardPage() {
                             </div>
                           </td>
                           <td className="p-3 font-mono text-slate-300">{admin.email}</td>
-                          <td className="p-3 text-slate-400">{admin.phone || '—'}</td>
+                          <td className="p-3 text-slate-400">{admin.phone || '-'}</td>
                           <td className="p-3">
                             {isAdminOwner ? (
                               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#722F3D] text-[#DFC394] border border-[#DFC394] inline-flex items-center gap-1">
@@ -2348,7 +2348,7 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] text-slate-400">
-                    ✨ Banarasi silk drapes continue to be our highest revenue contributor, driven by wedding &amp; festive season demand.
+                    Banarasi silk drapes continue to be our highest revenue contributor, driven by wedding &amp; festive season demand.
                   </div>
                 </div>
               </div>
