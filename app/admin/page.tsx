@@ -976,7 +976,7 @@ export default function AdminDashboardPage() {
               Autofill Credentials (admin123 / PIN: 15122006)
             </button>
             <Link
-              href="/"
+              href={process.env.NEXT_PUBLIC_SITE_URL || "/"}
               className="text-[11px] text-slate-400 hover:text-white inline-flex items-center gap-1 mt-1"
             >
               <ArrowLeft className="w-3 h-3" />
@@ -1086,7 +1086,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <Link
-            href="/"
+            href={process.env.NEXT_PUBLIC_SITE_URL || "/"}
             target="_blank"
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs text-[#DFC394] font-medium transition-colors border border-slate-800"
           >

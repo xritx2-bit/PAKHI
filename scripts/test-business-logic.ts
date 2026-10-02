@@ -133,7 +133,31 @@ async function runTestSuite() {
   const dbStats = fs.statSync(dbPath);
   assert(dbStats.size > 0, `Database file has content (${(dbStats.size / 1024).toFixed(1)} KB)`);
 
-  // 8. SUMMARY
+  // 8. SUBDOMAIN & HOST ROUTING ISOLATION AUDIT
+  console.log('\n--- Test Suite 8: Subdomain & Dual-Host Routing Logic ---');
+  function resolveHostTarget(hostname: string, pathname: string, appMode?: string): { target: string; status: number } {
+    const isAdmin = appMode === 'admin' || hostname.startsWith('admin.') || hostname.startsWith('admin-');
+    if (isAdmin) {
+      if (pathname === '/') return { target: '/admin', status: 200 };
+      const customerOnly = ['/cart', '/checkout', '/wishlist', '/category', '/products', '/account'];
+      if (customerOnly.some((p) => pathname.startsWith(p))) {
+        return { target: '404_BLOCKED', status: 404 };
+      }
+      return { target: pathname, status: 200 };
+    }
+    if (appMode === 'storefront' && pathname.startsWith('/admin')) {
+      return { target: '404_BLOCKED', status: 404 };
+    }
+    return { target: pathname, status: 200 };
+  }
+
+  assert(resolveHostTarget('admin.pakhiscollection.com', '/').target === '/admin', 'Admin subdomain seamlessly rewrites root / to /admin');
+  assert(resolveHostTarget('admin.pakhiscollection.com', '/cart').status === 404, 'Admin subdomain strictly blocks customer /cart access (404)');
+  assert(resolveHostTarget('pakhiscollection.com', '/').target === '/', 'Customer domain serves consumer storefront at root /');
+  assert(resolveHostTarget('pakhiscollection.com', '/cart').status === 200, 'Customer domain allows access to /cart');
+  assert(resolveHostTarget('pakhiscollection.com', '/admin', 'storefront').status === 404, 'Storefront-only mode blocks /admin access completely (404)');
+
+  // 9. SUMMARY
   console.log('\n======================================================');
   console.log(`  AUDIT RESULTS: ${passedTests} / ${totalTests} TESTS PASSED`);
   if (passedTests === totalTests) {

@@ -162,7 +162,12 @@ export default function Footer({ onSelectCategory }: FooterProps) {
             <span>•</span>
             <Link href="/terms" className="hover:text-[#722F3D]">Terms &amp; Conditions</Link>
             <span>•</span>
-            <Link href="/admin" className="hover:text-[#722F3D] text-[#6E5C57]/60">Staff Portal</Link>
+            <Link
+              href={process.env.NEXT_PUBLIC_ADMIN_URL || "/admin"}
+              className="hover:text-[#722F3D] text-[#6E5C57]/60"
+            >
+              Staff Portal
+            </Link>
           </div>
         </div>
 
