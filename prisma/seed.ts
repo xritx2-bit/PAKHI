@@ -27,12 +27,21 @@ async function main() {
   await prisma.coupon.deleteMany();
 
   // 1. Create Users
-  const adminUser = await prisma.user.create({
+  const ownerUser = await prisma.user.create({
     data: {
-      name: 'Pakhi Administration',
+      name: 'Pakhi (Founder & Store Owner)',
       email: 'admin@pakhiscollection.com',
       phone: '+91 99999 88888',
-      role: 'ADMIN',
+      role: 'OWNER',
+    },
+  });
+
+  const opsManager = await prisma.user.create({
+    data: {
+      name: 'Ritika Sen (Operations)',
+      email: 'operations@pakhiscollection.com',
+      phone: '+91 98111 22334',
+      role: 'OPS_MANAGER',
     },
   });
 

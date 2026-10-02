@@ -2,12 +2,21 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth';
 
+// Helper to securely get and verify the requester's identity from the database
+async function getRequester(request: Request, bodyRequesterId?: string) {
+  const requesterId = bodyRequesterId || request.headers.get('x-admin-id');
+  if (!requesterId) return null;
+  return await db.user.findUnique({
+    where: { id: requesterId },
+  });
+}
+
 // 1. GET: List all administrators
 export async function GET() {
   try {
     const admins = await db.user.findMany({
       where: {
-        role: { in: ['ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'] },
+        role: { in: ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'] },
       },
       select: {
         id: true,
@@ -31,11 +40,23 @@ export async function GET() {
   }
 }
 
-// 2. POST: Create a new administrator
+// 2. POST: Create a new administrator (OWNER ONLY)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, role, phone, password } = body;
+    const { name, email, role, phone, password, requesterId } = body;
+
+    // Validate that requester is the Store Owner
+    const requester = await getRequester(request, requesterId);
+    if (!requester || requester.role !== 'OWNER') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Access Denied: Only the Store Owner has permission to add new staff or administrators.',
+        },
+        { status: 403 }
+      );
+    }
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -58,7 +79,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const assignedRole = role || 'OPS_MANAGER';
+    // Role cannot be duplicate OWNER
+    const assignedRole = role === 'OWNER' ? 'SUPER_ADMIN' : (role || 'OPS_MANAGER');
     const hashedPassword = hashPassword(password);
 
     const newAdmin = await db.user.create({
@@ -89,31 +111,50 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PATCH: Change Password or Update Admin Profile
+// 3. PATCH: Change Password or Update Permissions / Role
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { userId, action, newPassword, currentPassword, name, role, phone } = body;
+    const {
+      userId,
+      action,
+      newPassword,
+      currentPassword,
+      name,
+      role,
+      phone,
+      requesterId,
+    } = body;
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Admin userId is required' },
+        { success: false, error: 'Target admin userId is required' },
         { status: 400 }
       );
     }
 
-    const admin = await db.user.findUnique({
+    const requester = await getRequester(request, requesterId);
+    if (!requester) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Requester identity missing or invalid' },
+        { status: 401 }
+      );
+    }
+
+    const targetAdmin = await db.user.findUnique({
       where: { id: userId },
     });
 
-    if (!admin) {
+    if (!targetAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Admin account not found' },
+        { success: false, error: 'Target administrator account not found' },
         { status: 404 }
       );
     }
 
+    // ==========================================
     // ACTION A: CHANGE PASSWORD / PIN
+    // ==========================================
     if (action === 'CHANGE_PASSWORD' || newPassword) {
       if (!newPassword || newPassword.length < 4) {
         return NextResponse.json(
@@ -122,12 +163,28 @@ export async function PATCH(request: Request) {
         );
       }
 
-      // If current password provided, verify it
-      if (currentPassword && !verifyPassword(currentPassword, admin.passwordHash)) {
+      // Check permission: An admin cannot change another admin's password!
+      const isSelf = requester.id === targetAdmin.id;
+      const isOwner = requester.role === 'OWNER';
+
+      if (!isSelf && !isOwner) {
         return NextResponse.json(
-          { success: false, error: 'Current password does not match' },
+          {
+            success: false,
+            error: "Access Denied: Administrators cannot change another administrator's password. Only the Store Owner has this authority.",
+          },
           { status: 403 }
         );
+      }
+
+      // If user is changing their own password, verify current password
+      if (isSelf && currentPassword) {
+        if (!verifyPassword(currentPassword, targetAdmin.passwordHash)) {
+          return NextResponse.json(
+            { success: false, error: 'Current password does not match' },
+            { status: 403 }
+          );
+        }
       }
 
       const updated = await db.user.update({
@@ -146,15 +203,39 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: 'Password successfully updated',
+        message: isSelf
+          ? 'Your password was successfully updated'
+          : `Password reset successfully for ${targetAdmin.name}`,
         data: updated,
       });
     }
 
-    // ACTION B: UPDATE PROFILE & ROLE
+    // ==========================================
+    // ACTION B: UPDATE ROLE / PERMISSIONS (OWNER ONLY)
+    // ==========================================
+    if (role && role !== targetAdmin.role) {
+      if (requester.role !== 'OWNER') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Access Denied: Administrators cannot change another administrator's permissions or role. Only the Store Owner can assign roles.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (targetAdmin.role === 'OWNER' && role !== 'OWNER') {
+        return NextResponse.json(
+          { success: false, error: 'The Store Owner role cannot be demoted or changed.' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update profile info
     const updateData: Record<string, unknown> = {};
     if (name) updateData.name = name;
-    if (role) updateData.role = role;
+    if (role && requester.role === 'OWNER') updateData.role = role;
     if (phone !== undefined) updateData.phone = phone;
 
     const updated = await db.user.update({
@@ -184,11 +265,12 @@ export async function PATCH(request: Request) {
   }
 }
 
-// 4. DELETE: Revoke Admin Access
+// 4. DELETE: Revoke Admin Access (OWNER ONLY)
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const requesterId = searchParams.get('requesterId') || request.headers.get('x-admin-id');
 
     if (!userId) {
       return NextResponse.json(
@@ -197,10 +279,17 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Ensure we don't delete the only superadmin
-    const superAdminCount = await db.user.count({
-      where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
-    });
+    // Verify requester is OWNER
+    const requester = await getRequester(request, requesterId || undefined);
+    if (!requester || requester.role !== 'OWNER') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Access Denied: Only the Store Owner can revoke staff access or delete administrators.',
+        },
+        { status: 403 }
+      );
+    }
 
     const targetUser = await db.user.findUnique({
       where: { id: userId },
@@ -213,12 +302,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (
-      (targetUser.role === 'ADMIN' || targetUser.role === 'SUPER_ADMIN') &&
-      superAdminCount <= 1
-    ) {
+    if (targetUser.role === 'OWNER') {
       return NextResponse.json(
-        { success: false, error: 'Cannot delete the primary administrator. At least one Super Admin is required.' },
+        { success: false, error: 'The Store Owner account cannot be deleted or revoked.' },
         { status: 400 }
       );
     }

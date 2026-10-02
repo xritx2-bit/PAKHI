@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     let admin = await db.user.findFirst({
       where: {
         email: cleanEmail,
-        role: { in: ['ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'] },
+        role: { in: ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'OPS_MANAGER', 'FULFILLMENT_STAFF'] },
       },
     });
 

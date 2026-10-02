@@ -41,7 +41,9 @@ import {
   Key,
   Trash2,
   Edit3,
-  UserPlus
+  UserPlus,
+  Crown,
+  ShieldAlert
 } from 'lucide-react';
 import { PRODUCTS } from '@/lib/products-data';
 
@@ -516,6 +518,7 @@ export default function AdminDashboardPage() {
           role: newAdminForm.role,
           phone: newAdminForm.phone,
           password: newAdminForm.password,
+          requesterId: currentUser?.id,
         }),
       });
       const data = await res.json();
@@ -534,7 +537,7 @@ export default function AdminDashboardPage() {
       } else {
         setNewAdminError(data.error || 'Failed to create administrator');
       }
-    } catch (err) {
+    } catch {
       setNewAdminError('Network error while creating administrator.');
     } finally {
       setIsSubmitting(false);
@@ -569,6 +572,7 @@ export default function AdminDashboardPage() {
           action: 'CHANGE_PASSWORD',
           newPassword: passwordForm.newPassword,
           currentPassword: passwordForm.currentPassword || undefined,
+          requesterId: currentUser?.id,
         }),
       });
       const data = await res.json();
@@ -605,6 +609,7 @@ export default function AdminDashboardPage() {
           name: editTargetUser.name,
           role: editTargetUser.role,
           phone: editTargetUser.phone,
+          requesterId: currentUser?.id,
         }),
       });
       const data = await res.json();
@@ -628,7 +633,7 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/users?userId=${admin.id}`, {
+      const res = await fetch(`/api/admin/users?userId=${admin.id}&requesterId=${currentUser?.id}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -641,6 +646,8 @@ export default function AdminDashboardPage() {
       alert('Error deleting admin');
     }
   };
+
+  const isOwner = currentUser?.role === 'OWNER';
 
   // Calculations for KPI Cards
   const totalRevenue = useMemo(() => {
@@ -922,15 +929,20 @@ export default function AdminDashboardPage() {
             )}
 
             <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
-              <div className="w-7 h-7 rounded-full bg-slate-800 border border-[#DFC394]/50 flex items-center justify-center text-[10px] font-bold text-[#DFC394]">
-                {currentUser?.name?.slice(0, 2).toUpperCase() || 'AD'}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                isOwner
+                  ? 'bg-[#722F3D] border border-[#DFC394] text-[#DFC394] shadow-md'
+                  : 'bg-slate-800 border border-slate-700 text-slate-300'
+              }`}>
+                {isOwner ? '👑' : (currentUser?.name?.slice(0, 2).toUpperCase() || 'AD')}
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-xs font-semibold text-white leading-tight">
-                  {currentUser?.name || 'Pakhi Administration'}
+                <p className="text-xs font-semibold text-white leading-tight flex items-center gap-1.5">
+                  <span>{currentUser?.name || (isOwner ? 'Pakhi (Store Owner)' : 'Staff Operator')}</span>
+                  {isOwner && <Crown className="w-3.5 h-3.5 text-[#DFC394]" />}
                 </p>
-                <p className="text-[10px] text-slate-400 font-mono">
-                  {currentUser?.role || 'SUPER_ADMIN'}
+                <p className={`text-[10px] font-mono font-bold tracking-wider ${isOwner ? 'text-[#DFC394]' : 'text-slate-400'}`}>
+                  {isOwner ? 'ROLE: STORE OWNER' : `ROLE: ${currentUser?.role || 'ADMIN'}`}
                 </p>
               </div>
             </div>
@@ -1541,19 +1553,57 @@ export default function AdminDashboardPage() {
             <div className="bg-[#0E1526] rounded-xl border border-slate-800 shadow-md p-5 space-y-4 animate-fadeIn">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
                 <div>
-                  <h3 className="font-serif text-lg font-bold text-white">Staff &amp; Administrative Team</h3>
+                  <h3 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                    <span>Staff &amp; Administrative Team</span>
+                    {isOwner && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#722F3D] text-[#DFC394] border border-[#DFC394]/50">
+                        👑 OWNER CONSOLE
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-xs text-slate-400">
-                    Add new administrators, modify access roles, and securely reset passwords / PINs
+                    Boutique administrative directory with role-based access control and strict permission isolation
                   </p>
                 </div>
-                <button
-                  onClick={() => setIsAddAdminOpen(true)}
-                  className="px-3.5 py-2 rounded-lg bg-[#DFC394] hover:bg-[#C6A36B] text-[#070A10] text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Add New Administrator</span>
-                </button>
+
+                {isOwner ? (
+                  <button
+                    onClick={() => setIsAddAdminOpen(true)}
+                    className="px-3.5 py-2 rounded-lg bg-[#DFC394] hover:bg-[#C6A36B] text-[#070A10] text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Add New Administrator</span>
+                  </button>
+                ) : (
+                  <div className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Staff Enrollment: Owner Only</span>
+                  </div>
+                )}
               </div>
+
+              {/* Governance & Policy Notice */}
+              {isOwner ? (
+                <div className="flex items-center gap-2.5 p-3.5 bg-amber-950/30 border border-[#DFC394]/30 rounded-xl text-xs text-[#DFC394]">
+                  <Crown className="w-5 h-5 text-[#DFC394] shrink-0" />
+                  <div>
+                    <strong className="block text-white font-serif">Store Owner Sovereign Authority</strong>
+                    <span>
+                      You hold supreme authority over Pakhi&apos;s Collection. You alone have rights to enroll staff, assign roles, reset operator credentials, or revoke access.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl text-xs text-slate-300">
+                  <ShieldAlert className="w-5 h-5 text-sky-400 shrink-0" />
+                  <div>
+                    <strong className="block text-white font-serif">Administrative Permission Policy</strong>
+                    <span>
+                      You have full access to manage store catalog, orders, and inventory. Per store security policy, administrators cannot change other administrators&apos; permissions or passwords; only the Store Owner has this authority.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Admin Users Table */}
               <div className="overflow-x-auto">
@@ -1570,13 +1620,19 @@ export default function AdminDashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
                     {adminUsersList.map((admin) => {
+                      const isAdminOwner = admin.role === 'OWNER';
                       const isSuper = admin.role === 'SUPER_ADMIN' || admin.role === 'ADMIN';
                       const isCurrentUser = currentUser?.id === admin.id || currentUser?.email === admin.email;
+
                       return (
                         <tr key={admin.id} className="hover:bg-slate-900/50 transition-colors">
                           <td className="p-3 flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-[#DFC394]/50 flex items-center justify-center text-xs font-bold text-[#DFC394]">
-                              {admin.name.slice(0, 2).toUpperCase()}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                              isAdminOwner
+                                ? 'bg-[#722F3D] border border-[#DFC394] text-[#DFC394]'
+                                : 'bg-slate-800 border border-slate-700 text-slate-300'
+                            }`}>
+                              {isAdminOwner ? '👑' : admin.name.slice(0, 2).toUpperCase()}
                             </div>
                             <div>
                               <p className="font-semibold text-white flex items-center gap-1.5">
@@ -1593,55 +1649,87 @@ export default function AdminDashboardPage() {
                           <td className="p-3 font-mono text-slate-300">{admin.email}</td>
                           <td className="p-3 text-slate-400">{admin.phone || '—'}</td>
                           <td className="p-3">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
-                                isSuper
-                                  ? 'bg-amber-950/60 text-[#DFC394] border-[#DFC394]/40'
-                                  : admin.role === 'OPS_MANAGER'
-                                  ? 'bg-sky-950/60 text-sky-400 border-sky-800/40'
-                                  : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
-                              }`}
-                            >
-                              {admin.role}
-                            </span>
+                            {isAdminOwner ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#722F3D] text-[#DFC394] border border-[#DFC394] inline-flex items-center gap-1">
+                                <Crown className="w-3 h-3 text-[#DFC394]" />
+                                <span>STORE OWNER</span>
+                              </span>
+                            ) : (
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                                  isSuper
+                                    ? 'bg-amber-950/60 text-[#DFC394] border-[#DFC394]/40'
+                                    : admin.role === 'OPS_MANAGER'
+                                    ? 'bg-sky-950/60 text-sky-400 border-sky-800/40'
+                                    : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                                }`}
+                              >
+                                {admin.role}
+                              </span>
+                            )}
                           </td>
                           <td className="p-3 text-slate-400 font-mono text-[11px]">
                             {new Date(admin.createdAt).toLocaleDateString('en-IN')}
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Change Password Button */}
-                              <button
-                                onClick={() => {
-                                  setPasswordTargetUser(admin);
-                                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                                  setPasswordModalError(null);
-                                  setPasswordModalSuccess(null);
-                                }}
-                                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[#DFC394] text-xs font-semibold flex items-center gap-1 transition-colors"
-                                title="Change Password / PIN"
-                              >
-                                <Key className="w-3 h-3" />
-                                <span>Change Pass</span>
-                              </button>
+                              {/* CASE 1: Logged-in admin managing their OWN account */}
+                              {isCurrentUser ? (
+                                <button
+                                  onClick={() => {
+                                    setPasswordTargetUser(admin);
+                                    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                                    setPasswordModalError(null);
+                                    setPasswordModalSuccess(null);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-[#722F3D] hover:bg-[#8B384A] text-[#DFC394] text-xs font-semibold flex items-center gap-1 transition-colors"
+                                  title="Change My Personal Password / PIN"
+                                >
+                                  <Key className="w-3 h-3" />
+                                  <span>Change My PIN</span>
+                                </button>
+                              ) : isOwner ? (
+                                /* CASE 2: Store Owner managing a staff member */
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setPasswordTargetUser(admin);
+                                      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                                      setPasswordModalError(null);
+                                      setPasswordModalSuccess(null);
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[#DFC394] text-xs font-semibold flex items-center gap-1 transition-colors"
+                                    title="Reset Staff Password"
+                                  >
+                                    <Key className="w-3 h-3" />
+                                    <span>Reset Pass</span>
+                                  </button>
 
-                              {/* Edit Profile Button */}
-                              <button
-                                onClick={() => setEditTargetUser(admin)}
-                                className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                                title="Edit Role &amp; Details"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
+                                  <button
+                                    onClick={() => setEditTargetUser(admin)}
+                                    className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                                    title="Edit Role &amp; Permissions"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
 
-                              {/* Delete Admin Button (disabled for primary super admin) */}
-                              <button
-                                onClick={() => handleDeleteAdmin(admin)}
-                                className="p-1.5 rounded bg-rose-950/40 hover:bg-rose-950 text-rose-400 hover:text-white transition-colors"
-                                title="Revoke Access"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                  {!isAdminOwner && (
+                                    <button
+                                      onClick={() => handleDeleteAdmin(admin)}
+                                      className="p-1.5 rounded bg-rose-950/40 hover:bg-rose-950 text-rose-400 hover:text-white transition-colors"
+                                      title="Revoke Access"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                /* CASE 3: Ordinary Admin viewing another admin: STRICTLY PROTECTED */
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono py-1 px-2 bg-slate-900/60 rounded border border-slate-800">
+                                  <Lock className="w-3 h-3 text-slate-500" />
+                                  <span>Protected (Owner Only)</span>
+                                </span>
+                              )}
                             </div>
                           </td>
                         </tr>
