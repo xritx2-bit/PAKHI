@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function GET() {
   try {
@@ -25,6 +26,15 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || 'local-client';
+    const rateLimit = checkRateLimit(`order_${ip}`, 15, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many order requests. Please try again shortly.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { items, address, paymentMethod, couponCode, paymentDetails } = body;
 

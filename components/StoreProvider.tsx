@@ -1,13 +1,16 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { CartProvider, useCart } from '@/lib/cart-context';
 import CartDrawer from '@/components/CartDrawer';
 import CheckoutModal from '@/components/CheckoutModal';
 import ProductDetailModal from '@/components/ProductDetailModal';
 import SearchModal from '@/components/SearchModal';
+import CustomerConciergeModal from '@/components/CustomerConciergeModal';
 
 function GlobalModals() {
+  const pathname = usePathname();
   const {
     isCheckoutOpen,
     setIsCheckoutOpen,
@@ -16,6 +19,11 @@ function GlobalModals() {
     isSearchOpen,
     setIsSearchOpen,
   } = useCart();
+
+  // Keep admin panel completely isolated from customer modals
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   return (
     <>
@@ -38,6 +46,7 @@ function GlobalModals() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />
+      <CustomerConciergeModal />
     </>
   );
 }

@@ -8,7 +8,7 @@ export interface Product {
   id: string;
   name: string;
   slug: string;
-  category: 'sarees' | 'kurtas';
+  category: 'sarees' | 'kurtas' | 'kurta-sets' | 'lehengas' | 'jewellery';
   subcategory: string;
   price: number;
   originalPrice: number;

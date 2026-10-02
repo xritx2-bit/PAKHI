@@ -159,7 +159,7 @@ export default function Footer({ onSelectCategory }: FooterProps) {
             <span>•</span>
             <a href="#terms" className="hover:text-[#722F3D]">Terms &amp; Conditions</a>
             <span>•</span>
-            <a href="#sitemap" className="hover:text-[#722F3D]">Sitemap</a>
+            <Link href="/admin" className="hover:text-[#722F3D] text-[#6E5C57]/60">Staff Portal</Link>
           </div>
         </div>
 

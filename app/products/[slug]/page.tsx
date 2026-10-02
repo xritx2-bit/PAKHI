@@ -25,6 +25,7 @@ import {
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import CompleteTheLook from '@/components/CompleteTheLook';
 import { PRODUCTS } from '@/lib/products-data';
 import { Product } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
@@ -59,8 +60,14 @@ export default function ProductDetailPage() {
   const [pincode, setPincode] = useState('');
   const [deliveryInfo, setDeliveryInfo] = useState<string | null>(null);
 
-  // Size chart modal state
+  // Size chart & AI Fit modal state
   const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showAiFitModal, setShowAiFitModal] = useState(false);
+  const [aiFitBust, setAiFitBust] = useState('36');
+  const [aiFitPref, setAiFitPref] = useState<'tailored' | 'comfortable' | 'relaxed'>('comfortable');
+  const [aiFitResult, setAiFitResult] = useState<any>(null);
+  const [isCalculatingFit, setIsCalculatingFit] = useState(false);
+
   const [copiedLink, setCopiedLink] = useState(false);
 
   const isWish = isInWishlist(product.id);
@@ -69,6 +76,29 @@ export default function ProductDetailPage() {
   const relatedProducts = useMemo(() => {
     return PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3);
   }, [product.id]);
+
+  const handleCalculateAiFit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCalculatingFit(true);
+    try {
+      const res = await fetch('/api/ai/size-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bust: Number(aiFitBust),
+          preferredFit: aiFitPref,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiFitResult(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCalculatingFit(false);
+    }
+  };
 
   const handleCheckPincode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,14 +305,24 @@ export default function ProductDetailPage() {
                   <label className="text-xs font-semibold text-[#241816] uppercase tracking-wider">
                     Select Size: <span className="font-normal text-[#6E5C57]">{selectedSize}</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowSizeChart(true)}
-                    className="inline-flex items-center gap-1 text-xs text-[#722F3D] hover:underline font-medium"
-                  >
-                    <Ruler className="w-3.5 h-3.5" />
-                    <span>Size Guide</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAiFitModal(true)}
+                      className="inline-flex items-center gap-1 text-[11px] text-[#722F3D] bg-[#FAF2F3] px-2.5 py-0.5 rounded-full border border-[#722F3D]/20 hover:bg-[#722F3D] hover:text-[#FFFFFF] transition-colors font-semibold shadow-2xs"
+                    >
+                      <Sparkles className="w-3 h-3 text-[#C6A36B]" />
+                      <span>AI Fit Stylist</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSizeChart(true)}
+                      className="inline-flex items-center gap-1 text-xs text-[#6E5C57] hover:text-[#722F3D] hover:underline font-medium"
+                    >
+                      <Ruler className="w-3.5 h-3.5" />
+                      <span>Size Guide</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {product.sizes.map((sz) => (
@@ -483,6 +523,9 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
+        {/* AI Royal Atelier Stylist: Complete The Look */}
+        <CompleteTheLook product={product} />
+
         {/* Customer Reviews & Ratings Section */}
         <section className="mt-16 pt-12 border-t border-[#E8DCCF]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
@@ -667,6 +710,118 @@ export default function ProductDetailPage() {
             >
               Got it
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Size & Fit Stylist Modal */}
+      {showAiFitModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#241816]/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-[#FFFFFF] rounded-2xl max-w-md w-full p-6 border border-[#E8DCCF] shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8DCCF]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#FAF2F3] text-[#722F3D] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#C6A36B]" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-base font-bold text-[#241816]">AI Size &amp; Fit Stylist</h3>
+                  <p className="text-[10px] text-[#6E5C57]">Powered by Pakhi&apos;s master tailor measurements</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAiFitModal(false)}
+                className="p-1 rounded-full text-[#6E5C57] hover:text-[#241816]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCalculateAiFit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[#6E5C57] font-medium mb-1">
+                  Your Bust Measurement (Inches)
+                </label>
+                <input
+                  type="number"
+                  min={28}
+                  max={54}
+                  required
+                  value={aiFitBust}
+                  onChange={(e) => setAiFitBust(e.target.value)}
+                  placeholder="e.g. 36"
+                  className="w-full p-2.5 rounded-lg border border-[#E8DCCF] bg-[#F8F3EC] text-xs font-bold text-[#241816]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#6E5C57] font-medium mb-1">
+                  Preferred Silhouette &amp; Ease
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'tailored', label: 'Tailored', sub: '1.5" ease' },
+                    { id: 'comfortable', label: 'Royal Fit', sub: '2.5" ease' },
+                    { id: 'relaxed', label: 'Relaxed', sub: '3.5" ease' },
+                  ].map((pref) => (
+                    <button
+                      key={pref.id}
+                      type="button"
+                      onClick={() => setAiFitPref(pref.id as any)}
+                      className={`p-2 rounded-lg border text-center transition-all ${
+                        aiFitPref === pref.id
+                          ? 'border-[#722F3D] bg-[#FAF2F3] text-[#722F3D] font-bold shadow-2xs'
+                          : 'border-[#E8DCCF] text-[#6E5C57] hover:border-[#722F3D]'
+                      }`}
+                    >
+                      <span className="block font-semibold">{pref.label}</span>
+                      <span className="text-[9px] text-[#6E5C57]">{pref.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isCalculatingFit}
+                className="w-full py-2.5 bg-[#722F3D] hover:bg-[#541F28] text-[#FFFFFF] font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5"
+              >
+                {isCalculatingFit ? (
+                  <span>Analyzing measurements...</span>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-[#DFC394]" />
+                    <span>Calculate Ideal Size</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* AI Recommendation Result */}
+            {aiFitResult && (
+              <div className="p-4 rounded-xl bg-[#FAF2F3] border border-[#722F3D]/20 space-y-2 animate-fadeIn text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-[#6E5C57]">Recommended Size:</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#722F3D] text-[#FFFFFF] font-bold text-xs">
+                    Size {aiFitResult.recommendedSize} ({aiFitResult.confidence} Match)
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#6E5C57] leading-relaxed">
+                  {aiFitResult.explanation}
+                </p>
+                <div className="pt-2 border-t border-[#722F3D]/10 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSize(aiFitResult.recommendedSize);
+                      setShowAiFitModal(false);
+                    }}
+                    className="w-full py-2 bg-[#722F3D] text-[#FFFFFF] text-xs font-semibold rounded-lg hover:bg-[#541F28] transition-colors"
+                  >
+                    Select Size {aiFitResult.recommendedSize} &amp; Close
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

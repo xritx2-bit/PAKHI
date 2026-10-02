@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || 'local-client';
+    const rateLimit = checkRateLimit(`coupon_${ip}`, 20, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { valid: false, error: 'Too many coupon attempts. Please wait a minute.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { code, subtotal } = body;
 

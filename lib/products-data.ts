@@ -229,6 +229,109 @@ export const PRODUCTS: Product[] = [
       'Includes 3-piece set: Anarkali Kurta, Pants, and Organza Dupatta',
       'Embellishment: Delicate mukaish and pita embroidery work'
     ]
+  },
+  {
+    id: 'kset-1',
+    name: 'Embroidered Chanderi Kurta Set',
+    slug: 'embroidered-chanderi-kurta-set',
+    category: 'kurta-sets',
+    subcategory: 'Kurta Set with Dupatta',
+    price: 3499,
+    originalPrice: 4499,
+    discountPercent: 22,
+    rating: 4.9,
+    reviewCount: 16,
+    image: '/images/cotton-printed-kurta.jpg',
+    gallery: [
+      '/images/cotton-printed-kurta.jpg',
+      '/images/category-kurta.jpg'
+    ],
+    description: 'A regal three-piece ensemble comprising a jewel-toned Chanderi silk kurta with delicate zardozi neckline, tailored cigarette pants, and a gold-striped gossamer dupatta.',
+    fabric: 'Pure Chanderi Silk',
+    occasion: 'Festive',
+    pattern: 'Zardozi Hand Embroidery',
+    isNew: true,
+    isTrending: true,
+    stock: 12,
+    colors: [
+      { name: 'Emerald', hex: '#064E3B', inStock: true },
+      { name: 'Wine Red', hex: '#722F3D', inStock: true }
+    ],
+    sizes: ['S', 'M', 'L', 'XL'],
+    careInstructions: 'Dry clean only. Store in breathable cloth bag.',
+    details: [
+      'Set Contains: Kurta, Matching Trouser Pants, and Handwoven Dupatta',
+      'Hand embroidery on front yoke and cuffs',
+      'Lining: Soft mulmul cotton inner attached'
+    ]
+  },
+  {
+    id: 'leh-1',
+    name: 'Heritage Zardozi Velvet Lehenga',
+    slug: 'heritage-zardozi-velvet-lehenga',
+    category: 'lehengas',
+    subcategory: 'Bridal Lehenga',
+    price: 8999,
+    originalPrice: 11999,
+    discountPercent: 25,
+    rating: 5.0,
+    reviewCount: 9,
+    image: '/images/hero-saree.jpg',
+    gallery: [
+      '/images/hero-saree.jpg',
+      '/images/festive-editorial.jpg'
+    ],
+    description: 'Crafted for milestone celebrations. Opulent silk velvet lehenga skirt encrusted with dabka, nakshi and antique metallic gold zari work, paired with a sweetheart choli and dual dupattas.',
+    fabric: 'Micro Velvet & Net',
+    occasion: 'Wedding',
+    pattern: 'Dabka & Zardozi Handwork',
+    isNew: true,
+    isTrending: true,
+    stock: 6,
+    colors: [
+      { name: 'Wine Red', hex: '#722F3D', inStock: true },
+      { name: 'Royal Crimson', hex: '#991B1B', inStock: true }
+    ],
+    sizes: ['Free Size (Semi-Stitched)'],
+    careInstructions: 'Strictly dry clean only.',
+    details: [
+      'Flare: 4.2 meter royal bridal flare with double can-can support',
+      'Blouse: 1.0 m unstitched embroidered fabric with sleeves',
+      'Includes dual dupattas: Velvet trailing dupatta & lightweight tulle veil'
+    ]
+  },
+  {
+    id: 'jewel-1',
+    name: 'Heritage 22K Kundan Choker & Jhumka Set',
+    slug: 'heritage-kundan-choker-set',
+    category: 'jewellery',
+    subcategory: 'Bridal Jewellery',
+    price: 2499,
+    originalPrice: 3299,
+    discountPercent: 24,
+    rating: 4.9,
+    reviewCount: 22,
+    image: '/images/occasion-wedding.jpg',
+    gallery: [
+      '/images/occasion-wedding.jpg',
+      '/images/banarasi-blue.jpg'
+    ],
+    description: 'Artisanal heirloom jewellery. Handcrafted brass layered with 22-karat gold plating, studded with uncut glass kundan crystals and cluster pearl droplets.',
+    fabric: '22K Gold Plated Brass & Freshwater Pearl',
+    occasion: 'Wedding',
+    pattern: 'Jadau Kundan & Meenakari',
+    isNew: true,
+    isTrending: true,
+    stock: 18,
+    colors: [
+      { name: 'Royal Gold', hex: '#DFC394', inStock: true }
+    ],
+    careInstructions: 'Avoid direct perfume or moisture. Store in the velvet keepsake box provided.',
+    details: [
+      'Set includes: Adjustable Choker Necklace and matching Hanging Jhumka Earrings',
+      'Closure: Hand-knotted gold dori drawstring (fits all neck sizes)',
+      'Reverse side: Hand-painted Rajasthani meenakari enamel work'
+    ]
   }
 ];
 

@@ -112,12 +112,6 @@ export default function Navbar({ onSearchClick, onFilterCategory }: NavbarProps)
             >
               Track Order
             </Link>
-            <Link
-              href="/admin"
-              className="px-2.5 py-1 text-xs font-semibold rounded bg-[#FAF2F3] text-[#722F3D] border border-[#722F3D]/20 hover:bg-[#722F3D] hover:text-[#FFFFFF] transition-all"
-            >
-              Admin
-            </Link>
           </nav>
 
           {/* Right Action Icons */}
