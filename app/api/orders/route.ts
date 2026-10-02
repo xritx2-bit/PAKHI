@@ -277,3 +277,55 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { orderId, orderStatus } = body;
+
+    if (!orderId || !orderStatus) {
+      return NextResponse.json(
+        { success: false, error: 'Missing orderId or orderStatus' },
+        { status: 400 }
+      );
+    }
+
+    const currentOrder = await db.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!currentOrder) {
+      return NextResponse.json(
+        { success: false, error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    const updated = await db.order.update({
+      where: { id: orderId },
+      data: {
+        orderStatus,
+        statusHistory: {
+          create: {
+            oldStatus: currentOrder.orderStatus,
+            newStatus: orderStatus,
+            changedBy: 'Admin (Operations)',
+          },
+        },
+      },
+      include: {
+        items: true,
+        statusHistory: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update order status' },
+      { status: 500 }
+    );
+  }
+}
+
